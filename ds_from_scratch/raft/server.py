@@ -25,8 +25,8 @@ class RaftServer:
         operation = msg.body['operation']
         self.logger.info(
             "received message {op} from {sender}".format(op=operation, sender=msg.src_address.hostname))
-        if operation == 'process_heartbeat':
-            self.executor.submit(ProcessHeartbeatTask(
+        if operation == 'append_entries':
+            self.executor.submit(AppendEntriesTask(
                 raft=self.raft,
                 msg_gateway=self.msg_gateway,
                 executor=self.executor,

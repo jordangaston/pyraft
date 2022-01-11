@@ -2,10 +2,36 @@ from ds_from_scratch.sim.core import NetworkInterface, Environment
 from enum import Enum
 
 
+class RingBufferRandom:
+
+    def __init__(self, seq):
+        self.seq = seq
+        self.i = 0
+
+    def randint(self, a, b):
+        result = self.seq[self.i]
+        if self.i < len(self.seq) - 1:
+            self.i += 1
+        else:
+            self.i = 0
+        return result
+
+
 class MessageGateway:
 
     def __init__(self):
         pass
+
+    def send_append_entries_response(self, sender, receiver, ok):
+        network_interface = NetworkInterface.get_instance(sender.get_address())
+        conn = network_interface.open_connection(src_port=0, dst_port=0, dst_hostname=receiver)
+        conn.send({
+            'operation': 'append_entries_response',
+            'senders_term': sender.get_current_term(),
+            'sender': sender.get_address(),
+            'ok': ok
+        })
+        conn.close()
 
     def send_heartbeat(self, sender):
         network_interface = NetworkInterface.get_instance(sender.get_address())
@@ -25,12 +51,18 @@ class Executor:
 
     def __init__(self, executor):
         self.executor = executor
+        self.future_by_task = {}
 
     def submit(self, task):
-        return self.executor.submit(fn=task.run)
+        self.executor.submit(fn=task.run)
 
     def schedule(self, task, delay):
-        return self.executor.schedule(fn=task.run, delay=delay)
+        future = self.executor.schedule(fn=task.run, delay=delay)
+        self.future_by_task[type(task).__name__] = future
+
+    def cancel(self, task_klass):
+        future = self.future_by_task[task_klass.__name__]
+        return future.cancel()
 
 
 class Logger:
@@ -48,4 +80,4 @@ class Logger:
 class Role(Enum):
     CANDIDATE = 0
     LEADER = 1
-    FOLLOWER = 0
+    FOLLOWER = 2

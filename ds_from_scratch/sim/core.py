@@ -175,8 +175,10 @@ class SimulationExecutor(concurrent.futures.Executor):
         future = concurrent.futures.Future()
 
         def callback(*a):
-            fn(*a)
-            future.set_result(None)
+            can_run = future.set_running_or_notify_cancel()
+            if can_run:
+                fn(*a)
+                future.set_result(None)
 
         Timer(interval=delay, function=callback, args=args).start()
 

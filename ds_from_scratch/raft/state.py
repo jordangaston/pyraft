@@ -15,6 +15,20 @@ class RaftState:
         self.current_term = current_term
         self.election_timeout_range = election_timeout_range
         self.prng = prng
+        self.votes = set()
+        self.voted = False
+
+    def vote(self):
+        if self.voted:
+            return False
+        self.voted = True
+        return True
+
+    def start_election(self):
+        self.__clear_election_state()
+        self.role = Role.CANDIDATE
+        self.votes.add(self.get_address())
+        self.voted = True
 
     def heard_from_peer(self, peers_term):
         self.current_term = peers_term
@@ -22,9 +36,11 @@ class RaftState:
     def next_election_timeout(self):
         return self.prng.randint(self.election_timeout_range[0], self.election_timeout_range[1])
 
-    def become_follower(self, leaders_term):
+    def become_follower(self, peers_term):
         self.role = Role.FOLLOWER
-        self.current_term = leaders_term
+        if self.current_term < peers_term:
+            self.current_term = peers_term
+            self.__clear_election_state()
 
     def get_heartbeat_interval(self):
         return self.heartbeat_interval
@@ -37,3 +53,7 @@ class RaftState:
 
     def get_current_term(self):
         return self.current_term
+
+    def __clear_election_state(self):
+        self.votes.clear()
+        self.voted = False

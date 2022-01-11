@@ -22,25 +22,37 @@ class MessageGateway:
     def __init__(self):
         pass
 
+    def send_request_vote_response(self, sender, receiver, ok):
+        self.__send('request_vote_response', sender, receiver, ok)
+
     def send_append_entries_response(self, sender, receiver, ok):
+        self.__send('append_entries_response', sender, receiver, ok)
+
+    def send_heartbeat(self, sender):
+        self.__broadcast('append_entries', sender)
+
+    def request_votes(self, sender):
+        self.__broadcast('request_vote', sender)
+
+    def __send(self, operation, sender, receiver, ok):
         network_interface = NetworkInterface.get_instance(sender.get_address())
         conn = network_interface.open_connection(src_port=0, dst_port=0, dst_hostname=receiver)
         conn.send({
-            'operation': 'append_entries_response',
+            'operation': operation,
             'senders_term': sender.get_current_term(),
             'sender': sender.get_address(),
             'ok': ok
         })
         conn.close()
 
-    def send_heartbeat(self, sender):
+    def __broadcast(self, operation, sender):
         network_interface = NetworkInterface.get_instance(sender.get_address())
         for hostname in network_interface.get_hostnames():
             if hostname == network_interface.get_hostname():
                 continue
             conn = network_interface.open_connection(src_port=0, dst_port=0, dst_hostname=hostname)
             conn.send({
-                'operation': 'append_entries',
+                'operation': operation,
                 'senders_term': sender.get_current_term(),
                 'sender': sender.get_address(),
             })

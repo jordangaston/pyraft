@@ -1,5 +1,6 @@
 from ds_from_scratch.raft.util import Role
 from random import Random
+import math
 
 
 class RaftState:
@@ -18,6 +19,9 @@ class RaftState:
         self.votes = set()
         self.voted = False
 
+    def got_vote(self, sender):
+        self.votes.add(sender)
+
     def vote(self):
         if self.voted:
             return False
@@ -26,6 +30,7 @@ class RaftState:
 
     def start_election(self):
         self.__clear_election_state()
+        self.current_term += 1
         self.role = Role.CANDIDATE
         self.votes.add(self.get_address())
         self.voted = True
@@ -42,6 +47,12 @@ class RaftState:
             self.current_term = peers_term
             self.__clear_election_state()
 
+    def become_leader(self):
+        if self.role != Role.CANDIDATE:
+            return
+        self.role = Role.LEADER
+        self.__clear_election_state()
+
     def get_heartbeat_interval(self):
         return self.heartbeat_interval
 
@@ -53,6 +64,10 @@ class RaftState:
 
     def get_current_term(self):
         return self.current_term
+
+    def has_quorum(self, peer_count):
+        quorum = math.ceil(peer_count / 2)
+        return len(self.votes) >= quorum
 
     def __clear_election_state(self):
         self.votes.clear()

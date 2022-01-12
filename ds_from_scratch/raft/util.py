@@ -22,6 +22,9 @@ class MessageGateway:
     def __init__(self):
         pass
 
+    def get_peer_count(self):
+        return len(NetworkInterface.get_hostnames())
+
     def send_request_vote_response(self, sender, receiver, ok):
         self.__send('request_vote_response', sender, receiver, ok)
 
@@ -47,7 +50,7 @@ class MessageGateway:
 
     def __broadcast(self, operation, sender):
         network_interface = NetworkInterface.get_instance(sender.get_address())
-        for hostname in network_interface.get_hostnames():
+        for hostname in NetworkInterface.get_hostnames():
             if hostname == network_interface.get_hostname():
                 continue
             conn = network_interface.open_connection(src_port=0, dst_port=0, dst_hostname=hostname)
@@ -73,9 +76,10 @@ class Executor:
         self.future_by_task[type(task).__name__] = future
 
     def cancel(self, task_klass):
-        future = self.future_by_task[task_klass.__name__]
-        return future.cancel()
-
+        if task_klass.__name__ in self.future_by_task:
+            future = self.future_by_task[task_klass.__name__]
+            return future.cancel()
+        return False
 
 class Logger:
     def __init__(self, address):

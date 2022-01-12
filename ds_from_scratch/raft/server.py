@@ -39,3 +39,10 @@ class RaftServer:
                 executor=self.executor,
                 msg=msg.body
             ))
+        elif operation == 'request_vote_response':
+            self.executor.submit(RequestVoteResponseTask(
+                raft=self.raft,
+                msg_gateway=self.msg_gateway,
+                executor=self.executor,
+                msg=msg.body
+            ))

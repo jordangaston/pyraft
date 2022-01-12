@@ -99,6 +99,10 @@ class NetworkInterface:
     instances = {}
 
     @classmethod
+    def get_hostnames(self):
+        return Network.get_instance().hostnames()
+
+    @classmethod
     def get_instance(cls, hostname):
         return cls.instances[hostname]
 
@@ -116,9 +120,6 @@ class NetworkInterface:
             1: simpy.Store(env=env, capacity=simpy.core.Infinity),
             2: simpy.Store(env=env, capacity=simpy.core.Infinity)
         }
-
-    def get_hostnames(self):
-        return Network.get_instance().hostnames()
 
     def get_hostname(self):
         return self.hostname

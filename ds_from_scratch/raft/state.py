@@ -19,6 +19,12 @@ class RaftState:
         self.votes = set()
         self.voted = False
 
+    def get_snapshot(self):
+        return {
+            'role': self.role,
+            'current_term': self.current_term,
+        }
+
     def got_vote(self, sender):
         self.votes.add(sender)
 

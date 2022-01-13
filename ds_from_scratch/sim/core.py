@@ -6,6 +6,11 @@ class Environment:
     instance = None
 
     @classmethod
+    def create_instance(cls):
+        cls.instance = simpy.Environment()
+        return cls.instance
+
+    @classmethod
     def get_instance(cls):
         if cls.instance is None:
             cls.instance = simpy.Environment()
@@ -14,6 +19,11 @@ class Environment:
 
 class Network:
     instance = None
+
+    @classmethod
+    def create_instance(cls):
+        cls.instance = Network(env=Environment.get_instance())
+        return cls.instance
 
     @classmethod
     def get_instance(cls):
@@ -25,6 +35,9 @@ class Network:
         self.queue = simpy.Store(env=env, capacity=simpy.core.Infinity)
         self.ni_by_hostname = {}
         self.connections = set()
+
+    def are_connected(self, src, dst):
+        return tuple(sorted([src, dst])) in self.connections
 
     def hostnames(self):
         return self.ni_by_hostname.keys()
@@ -43,11 +56,20 @@ class Network:
                 continue
             self.connections.add(connection)
 
+    def disconnect_from_all(self, hostname):
+        for peer_hostname in self.ni_by_hostname.keys():
+            if peer_hostname is hostname:
+                continue
+            connection = tuple(sorted([peer_hostname, hostname]))
+            if connection in self.connections:
+                self.connections.remove(connection)
+
     def run(self):
         while True:
             msg = yield self.queue.get()
-            ni = self.ni_by_hostname[msg.dst_address.hostname]
-            ni.queue.put(msg)
+            if self.are_connected(msg.src_address.hostname, msg.dst_address.hostname):
+                ni = self.ni_by_hostname[msg.dst_address.hostname]
+                ni.queue.put(msg)
 
 
 class IncomingConnection:
@@ -103,11 +125,12 @@ class NetworkInterface:
         return Network.get_instance().hostnames()
 
     @classmethod
-    def get_instance(cls, hostname):
+    def create_instance(cls, hostname):
+        cls.instances[hostname] = NetworkInterface(env=Environment.get_instance(), hostname=hostname)
         return cls.instances[hostname]
 
     @classmethod
-    def create_instance(cls, hostname):
+    def get_instance(cls, hostname):
         if hostname not in cls.instances:
             cls.instances[hostname] = NetworkInterface(env=Environment.get_instance(), hostname=hostname)
         return cls.instances[hostname]

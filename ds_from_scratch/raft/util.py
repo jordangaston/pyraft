@@ -81,6 +81,7 @@ class Executor:
             return future.cancel()
         return False
 
+
 class Logger:
     def __init__(self, address):
         self.address = address

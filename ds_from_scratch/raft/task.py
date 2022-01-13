@@ -94,13 +94,52 @@ class AppendEntriesTask:
         return self.msg['senders_term']
 
 
+class AppendEntriesResponseTask:
+
+    def __init__(self, raft, msg, executor, msg_gateway):
+        self.msg = msg
+        self.msg_gateway = msg_gateway
+        self.executor = executor
+        self.raft = raft
+        self.logger = Logger(address=raft.get_address())
+
+    def run(self):
+        if not self.is_leader() or self.request_successful():
+            return
+
+        if self.is_stale():
+            self.become_follower()
+
+    def become_follower(self):
+        self.raft.become_follower(peers_term=self.peers_term())
+        self.executor.cancel(HeartbeatTask)
+        self.executor.schedule(
+            task=ElectionTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
+            delay=self.raft.next_election_timeout()
+        )
+
+    def request_successful(self):
+        return self.msg['ok']
+
+    def is_stale(self):
+        return self.raft.get_current_term() < self.msg['senders_term']
+
+    def is_leader(self):
+        return self.raft.get_role() == Role.LEADER
+
+    def peers_term(self):
+        return self.msg['senders_term']
+
+
 class ElectionTask:
     def __init__(self, raft, executor, msg_gateway):
         self.msg_gateway = msg_gateway
         self.executor = executor
         self.raft = raft
+        self.logger = Logger(address=raft.get_address())
 
     def run(self):
+        self.logger.info('started election')
         self.raft.start_election()
         self.msg_gateway.request_votes(sender=self.raft)
         self.executor.schedule(

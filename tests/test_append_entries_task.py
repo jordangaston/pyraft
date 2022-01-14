@@ -1,3 +1,4 @@
+from ds_from_scratch.raft.log import LogEntry
 from ds_from_scratch.raft.task import AppendEntriesTask, ElectionTask, HeartbeatTask
 from ds_from_scratch.raft.state import Raft
 from ds_from_scratch.raft.util import Role, Executor, MessageGateway
@@ -12,6 +13,42 @@ def test_entries_rejected_with_state_leader(mocker):
         msg_gateway=msg_gateway,
         executor=None,
         msg={'sender': 'raft_node_2', 'senders_term': 1}
+    )
+
+    mocker.patch.object(msg_gateway, 'send_append_entries_response')
+
+    task.run()
+
+    msg_gateway.send_append_entries_response.assert_called_once_with(sender=raft, receiver='raft_node_2', ok=False)
+
+
+def test_request_rejected_with_stale_log_term(mocker):
+    raft = Raft(address='raft_node_1', role=Role.FOLLOWER, current_term=2, log=[LogEntry(term=2, index=2, body=None)])
+    msg_gateway = MessageGateway()
+
+    task = AppendEntriesTask(
+        raft=raft,
+        msg_gateway=msg_gateway,
+        executor=None,
+        msg={'sender': 'raft_node_2', 'senders_term': 3, 'exp_last_log_entry': {'term': 3, 'index': 2}}
+    )
+
+    mocker.patch.object(msg_gateway, 'send_append_entries_response')
+
+    task.run()
+
+    msg_gateway.send_append_entries_response.assert_called_once_with(sender=raft, receiver='raft_node_2', ok=False)
+
+
+def test_request_rejected_with_stale_log_index(mocker):
+    raft = Raft(address='raft_node_1', role=Role.FOLLOWER, current_term=2, log=[LogEntry(term=2, index=3, body=None)])
+    msg_gateway = MessageGateway()
+
+    task = AppendEntriesTask(
+        raft=raft,
+        msg_gateway=msg_gateway,
+        executor=None,
+        msg={'sender': 'raft_node_2', 'senders_term': 3, 'exp_last_log_entry': {'term': 2, 'index': 2}}
     )
 
     mocker.patch.object(msg_gateway, 'send_append_entries_response')

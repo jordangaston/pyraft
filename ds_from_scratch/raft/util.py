@@ -50,20 +50,31 @@ class MessageGateway:
         })
         conn.close()
 
-    def __broadcast(self, operation, sender, params=None):
+    def __broadcast(self, operation, sender, params=None, params_by_hostname=None):
         if params is None:
             params = {}
+
+        if params_by_hostname is None:
+            params_by_hostname = {}
 
         network_interface = NetworkInterface.get_instance(sender.get_address())
         for hostname in NetworkInterface.get_hostnames():
             if hostname == network_interface.get_hostname():
                 continue
+
+            if hostname in params_by_hostname:
+                params_for_hostname = params_by_hostname[hostname]
+            else:
+                params_for_hostname = {}
+
             conn = network_interface.open_connection(src_port=0, dst_port=0, dst_hostname=hostname)
+
             conn.send({
                 'operation': operation,
                 'senders_term': sender.get_current_term(),
                 'sender': sender.get_address(),
-                **params
+                **params,
+                **params_for_hostname
             })
             conn.close()
 

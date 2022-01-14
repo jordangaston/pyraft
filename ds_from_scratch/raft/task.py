@@ -47,7 +47,7 @@ class AppendEntriesTask:
         self.logger = Logger(address=raft.get_address())
 
     def run(self):
-        if self.is_leader_stale():
+        if self.leaders_term_stale() or self.log_is_inconsistent():
             self.reject_entries()
             return
 
@@ -58,8 +58,19 @@ class AppendEntriesTask:
 
         self.finished_appending_entries()
 
-    def is_leader_stale(self):
+    def log_is_inconsistent(self):
+        expected_term, expected_index = self.exp_last_term_index()
+        return self.raft.get_last_log_term() != expected_term or self.raft.get_last_log_index() != expected_index
+
+    def leaders_term_stale(self):
         return self.raft.get_current_term() > self.leaders_term()
+
+    def exp_last_term_index(self):
+        if 'exp_last_log_entry' not in self.msg:
+            return 0, 0
+
+        entry = self.msg['exp_last_log_entry']
+        return entry['term'], entry['index']
 
     def reject_entries(self):
         self.msg_gateway.send_append_entries_response(sender=self.raft, receiver=self.leaders_address(), ok=False)

@@ -156,13 +156,13 @@ class RequestVoteTask:
         self.raft = raft
 
     def run(self):
-        if self.is_peer_stale():
+        if self.peers_term_is_stale() or self.peers_log_is_stale():
             self.reject_request()
             return
 
         if self.is_follower():
             self.heard_from_peer()
-        elif self.is_stale():
+        elif self.term_is_stale():
             self.become_follower()
 
         self.finish_voting()
@@ -192,11 +192,33 @@ class RequestVoteTask:
                                                     receiver=self.peers_address(),
                                                     ok=self.raft.vote())
 
-    def is_stale(self):
+    def term_is_stale(self):
         return self.raft.get_current_term() < self.peers_term()
 
-    def is_peer_stale(self):
+    def peers_latest_log_entry(self):
+        pass
+
+    def peers_term_is_stale(self):
         return self.raft.get_current_term() > self.peers_term()
+
+    def peers_log_is_stale(self):
+        term, index = self.last_log_term_index()
+        peers_term, peers_index = self.peers_last_log_term_index()
+        if term > peers_term:
+            return True
+        elif term < peers_term:
+            return False
+        else:
+            return index > peers_term
+
+    def peers_last_log_term_index(self):
+        if 'senders_last_log_entry' not in self.msg:
+            return 0, 0
+        last_log_entry = self.msg['senders_last_log_entry']
+        return last_log_entry['term'], last_log_entry['index']
+
+    def last_log_term_index(self):
+        return self.raft.get_last_log_term(), self.raft.get_last_log_index()
 
     def peers_address(self):
         return self.msg['sender']

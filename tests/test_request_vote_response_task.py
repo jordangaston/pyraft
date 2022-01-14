@@ -1,10 +1,10 @@
-from ds_from_scratch.raft.state import RaftState
+from ds_from_scratch.raft.state import Raft
 from ds_from_scratch.raft.task import RequestVoteTask, HeartbeatTask, ElectionTask, RequestVoteResponseTask
 from ds_from_scratch.raft.util import Role, MessageGateway, Executor
 
 
 def test_becomes_follower_when_stale(mocker):
-    raft = RaftState(address='raft_node_1', role=Role.CANDIDATE, current_term=5)
+    raft = Raft(address='raft_node_1', role=Role.CANDIDATE, current_term=5)
     msg_gateway = MessageGateway()
     executor = Executor(executor=None)
 
@@ -33,7 +33,7 @@ def test_becomes_follower_when_stale(mocker):
 
 
 def test_becomes_leader_when_has_quorum(mocker):
-    raft = RaftState(address='raft_node_1', role=Role.CANDIDATE, current_term=10, heartbeat_interval=5)
+    raft = Raft(address='raft_node_1', role=Role.CANDIDATE, current_term=10, heartbeat_interval=5)
     msg_gateway = MessageGateway()
     executor = Executor(executor=None)
 
@@ -61,7 +61,7 @@ def test_becomes_leader_when_has_quorum(mocker):
 
 
 def test_remains_candidate_without_quorum(mocker):
-    raft = RaftState(address='raft_node_1', role=Role.CANDIDATE, current_term=10, heartbeat_interval=5)
+    raft = Raft(address='raft_node_1', role=Role.CANDIDATE, current_term=10, heartbeat_interval=5)
     msg_gateway = MessageGateway()
     executor = Executor(executor=None)
 
@@ -86,7 +86,7 @@ def test_remains_candidate_without_quorum(mocker):
 
 
 def test_remains_candidate_without_vote(mocker):
-    raft = RaftState(address='raft_node_1', role=Role.CANDIDATE, current_term=10, heartbeat_interval=5)
+    raft = Raft(address='raft_node_1', role=Role.CANDIDATE, current_term=10, heartbeat_interval=5)
     msg_gateway = MessageGateway()
     executor = Executor(executor=None)
 

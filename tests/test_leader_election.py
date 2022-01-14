@@ -89,8 +89,9 @@ def test_leader_recovers_before_election():
 
 def test_leader_recovers_during_election():
     """
-    passes if a leader that recovers during a subsequent election
-    takes the subsequent term and reverts to the follower state
+    a leader that recovers during a subsequent election should
+    - update it's term
+    - become a follower
 
     0: simulation starts with node 1 as the leader
     5: node 1 sends a heartbeat

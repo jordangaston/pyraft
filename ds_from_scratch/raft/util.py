@@ -35,11 +35,13 @@ class MessageGateway:
         self.__broadcast('append_entries', sender)
 
     def request_votes(self, sender):
-        self.__broadcast('request_vote', sender)
+        params = {'senders_last_log_entry': {'term': sender.get_last_log_term(), 'index': sender.get_last_log_entry()}}
+        self.__broadcast('request_vote', sender, params=params)
 
     def __send(self, operation, sender, receiver, ok):
         network_interface = NetworkInterface.get_instance(sender.get_address())
         conn = network_interface.open_connection(src_port=0, dst_port=0, dst_hostname=receiver)
+
         conn.send({
             'operation': operation,
             'senders_term': sender.get_current_term(),
@@ -48,7 +50,10 @@ class MessageGateway:
         })
         conn.close()
 
-    def __broadcast(self, operation, sender):
+    def __broadcast(self, operation, sender, params=None):
+        if params is None:
+            params = {}
+
         network_interface = NetworkInterface.get_instance(sender.get_address())
         for hostname in NetworkInterface.get_hostnames():
             if hostname == network_interface.get_hostname():
@@ -58,6 +63,7 @@ class MessageGateway:
                 'operation': operation,
                 'senders_term': sender.get_current_term(),
                 'sender': sender.get_address(),
+                **params
             })
             conn.close()
 

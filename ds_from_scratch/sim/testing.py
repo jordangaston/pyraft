@@ -1,4 +1,4 @@
-from ds_from_scratch.raft.state import RaftState
+from ds_from_scratch.raft.state import Raft
 from ds_from_scratch.raft.server import RaftServer
 from ds_from_scratch.raft.util import Executor, MessageGateway
 from ds_from_scratch.sim.core import *
@@ -58,11 +58,11 @@ class SimulationBuilder:
         self.env.process(simulation_executor.run())
         executor = Executor(executor=simulation_executor)
 
-        raft = RaftState(address=hostname,
-                         current_term=current_term,
-                         role=role,
-                         heartbeat_interval=self.heartbeat_interval,
-                         prng=prng)
+        raft = Raft(address=hostname,
+                    current_term=current_term,
+                    role=role,
+                    heartbeat_interval=self.heartbeat_interval,
+                    prng=prng)
 
         self.raft_by_address[hostname] = raft
 

@@ -1,10 +1,10 @@
 from ds_from_scratch.raft.task import AppendEntriesTask, ElectionTask, HeartbeatTask
-from ds_from_scratch.raft.state import RaftState
+from ds_from_scratch.raft.state import Raft
 from ds_from_scratch.raft.util import Role, Executor, MessageGateway
 
 
 def test_entries_rejected_with_state_leader(mocker):
-    raft = RaftState(address='raft_node_1', role=Role.FOLLOWER, current_term=5)
+    raft = Raft(address='raft_node_1', role=Role.FOLLOWER, current_term=5)
     msg_gateway = MessageGateway()
 
     task = AppendEntriesTask(
@@ -22,7 +22,7 @@ def test_entries_rejected_with_state_leader(mocker):
 
 
 def test_candidate(mocker):
-    raft = RaftState(address='raft_node_1', role=Role.CANDIDATE, current_term=5)
+    raft = Raft(address='raft_node_1', role=Role.CANDIDATE, current_term=5)
     msg_gateway = MessageGateway()
     executor = Executor(executor=None)
 
@@ -52,7 +52,7 @@ def test_candidate(mocker):
 
 
 def test_leader(mocker):
-    raft = RaftState(address='raft_node_1', role=Role.LEADER, current_term=5)
+    raft = Raft(address='raft_node_1', role=Role.LEADER, current_term=5)
     msg_gateway = MessageGateway()
     executor = Executor(executor=None)
 
@@ -81,7 +81,7 @@ def test_leader(mocker):
 
 
 def test_follower(mocker):
-    raft = RaftState(address='raft_node_1', role=Role.FOLLOWER, current_term=5)
+    raft = Raft(address='raft_node_1', role=Role.FOLLOWER, current_term=5)
     msg_gateway = MessageGateway()
     executor = Executor(executor=None)
 

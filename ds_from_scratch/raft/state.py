@@ -3,13 +3,17 @@ from random import Random
 import math
 
 
-class RaftState:
+class Raft:
     def __init__(self, address,
                  role,
+                 log=[],
+                 state_machine=None,
                  current_term=0,
                  heartbeat_interval=5,
                  election_timeout_range=(10, 20),
                  prng=Random()):
+        self.state_machine = state_machine
+        self.log = log
         self.heartbeat_interval = heartbeat_interval
         self.address = address
         self.role = role
@@ -18,6 +22,28 @@ class RaftState:
         self.prng = prng
         self.votes = set()
         self.voted = False
+        self.next_index_by_hostname = {}
+        self.last_index_by_hostname = {}
+        self.last_commit_index = 0
+        self.last_applied_index = 0
+
+    def get_last_log_term(self):
+        entry = self.__last_log_entry()
+        if not entry:
+            return 0
+        return entry.get_term()
+
+    def get_last_log_index(self):
+        entry = self.__last_log_entry()
+        if not entry:
+            return 0
+        return entry.get_index()
+
+    def append_entry(self, entry):
+        pass
+
+    def commit_entry(self, index):
+        pass
 
     def get_snapshot(self):
         return {
@@ -78,3 +104,9 @@ class RaftState:
     def __clear_election_state(self):
         self.votes.clear()
         self.voted = False
+
+    def __last_log_entry(self):
+        num_entries = len(self.log)
+        if num_entries == 0:
+            return None
+        return self.log[num_entries - 1]

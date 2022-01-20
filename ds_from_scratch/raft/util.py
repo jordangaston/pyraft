@@ -1,4 +1,4 @@
-from ds_from_scratch.sim.core import NetworkInterface, Environment
+from ds_from_scratch.sim.core import Environment, NetworkInterface
 from enum import Enum
 
 
@@ -17,49 +17,56 @@ class RingBufferRandom:
         return result
 
 
-class MessageGateway:
+class MessageBoard:
 
-    def __init__(self):
-        pass
+    def __init__(self, raft_state):
+        self.raft_state = raft_state
 
     def get_peer_count(self):
-        return len(NetworkInterface.get_hostnames())
 
-    def send_request_vote_response(self, sender, receiver, ok):
-        self.__send('request_vote_response', sender, receiver, ok)
+        return len(self.network_interface().get_hostnames())
 
-    def send_append_entries_response(self, sender, receiver, ok):
-        self.__send('append_entries_response', sender, receiver, ok)
+    def send_request_vote_response(self, receiver, ok):
+        self.__send('request_vote_response', receiver, ok)
 
-    def send_heartbeat(self, sender):
-        self.__broadcast('append_entries', sender)
+    def send_append_entries_response(self, receiver, ok):
+        self.__send('append_entries_response', receiver, ok)
 
-    def request_votes(self, sender):
-        params = {'senders_last_log_entry': {'term': sender.get_last_log_term(), 'index': sender.get_last_log_entry()}}
-        self.__broadcast('request_vote', sender, params=params)
+    def send_heartbeat(self):
+        self.__broadcast('append_entries')
 
-    def __send(self, operation, sender, receiver, ok):
-        network_interface = NetworkInterface.get_instance(sender.get_address())
-        conn = network_interface.open_connection(src_port=0, dst_port=0, dst_hostname=receiver)
+    def request_votes(self):
+        params = {
+            'senders_last_log_entry': {
+                'term': self.raft_state.get_last_log_term(),
+                'index': self.raft_state.get_last_log_index()
+            }
+        }
+        self.__broadcast('request_vote', params=params)
 
-        conn.send({
-            'operation': operation,
-            'senders_term': sender.get_current_term(),
-            'sender': sender.get_address(),
-            'ok': ok
-        })
-        conn.close()
+    def append_entries(self, receiver):
+        pass
 
-    def __broadcast(self, operation, sender, params=None, params_by_hostname=None):
+    def __send(self, operation, receiver, ok):
+        self.network_interface().send(
+            msg={
+                'operation': operation,
+                'senders_term': self.raft_state.get_current_term(),
+                'sender': self.raft_state.get_address(),
+                'ok': ok
+            },
+            dst_hostname=receiver
+        )
+
+    def __broadcast(self, operation, params=None, params_by_hostname=None):
         if params is None:
             params = {}
 
         if params_by_hostname is None:
             params_by_hostname = {}
 
-        network_interface = NetworkInterface.get_instance(sender.get_address())
-        for hostname in NetworkInterface.get_hostnames():
-            if hostname == network_interface.get_hostname():
+        for hostname in self.network_interface().get_hostnames():
+            if hostname == self.raft_state.get_address():
                 continue
 
             if hostname in params_by_hostname:
@@ -67,16 +74,19 @@ class MessageGateway:
             else:
                 params_for_hostname = {}
 
-            conn = network_interface.open_connection(src_port=0, dst_port=0, dst_hostname=hostname)
+            self.network_interface().send(
+                msg={
+                    'operation': operation,
+                    'senders_term': self.raft_state.get_current_term(),
+                    'sender': self.raft_state.get_address(),
+                    **params,
+                    **params_for_hostname
+                },
+                dst_hostname=hostname
+            )
 
-            conn.send({
-                'operation': operation,
-                'senders_term': sender.get_current_term(),
-                'sender': sender.get_address(),
-                **params,
-                **params_for_hostname
-            })
-            conn.close()
+    def network_interface(self):
+        return NetworkInterface.get_instance(self.raft_state.get_address())
 
 
 class Executor:

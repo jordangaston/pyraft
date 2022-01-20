@@ -3,48 +3,48 @@ from ds_from_scratch.raft.util import Logger
 
 
 class StartServerTask:
-    def __init__(self, raft, executor, msg_gateway):
+    def __init__(self, state, executor, msg_board):
         self.executor = executor
-        self.raft = raft
-        self.msg_gateway = msg_gateway
-        self.logger = Logger(address=raft.get_address())
+        self.state = state
+        self.msg_board = msg_board
+        self.logger = Logger(address=state.get_address())
 
     def run(self):
-        role = self.raft.get_role()
+        role = self.state.get_role()
         if role is Role.LEADER:
             self.logger.info('is leader')
-            self.executor.submit(HeartbeatTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway))
+            self.executor.submit(HeartbeatTask(state=self.state, executor=self.executor, msg_board=self.msg_board))
         elif role is Role.FOLLOWER:
             self.logger.info('is follower')
             self.executor.schedule(
-                ElectionTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
-                self.raft.next_election_timeout()
+                ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+                self.state.next_election_timeout()
             )
-        # TODO add handling for followers and candidates
+        # TODO add handling for candidates
 
 
 class HeartbeatTask:
-    def __init__(self, raft, msg_gateway, executor):
-        self.raft = raft
-        self.msg_gateway = msg_gateway
+    def __init__(self, state, msg_board, executor):
+        self.state = state
+        self.msg_board = msg_board
         self.executor = executor
 
     def run(self):
-        if self.raft.get_role() is not Role.LEADER:
+        if self.state.get_role() is not Role.LEADER:
             return
 
-        self.msg_gateway.send_heartbeat(sender=self.raft)
-        self.executor.schedule(task=HeartbeatTask(raft=self.raft, msg_gateway=self.msg_gateway, executor=self.executor),
-                               delay=self.raft.get_heartbeat_interval())
+        self.msg_board.send_heartbeat()
+        self.executor.schedule(task=HeartbeatTask(state=self.state, msg_board=self.msg_board, executor=self.executor),
+                               delay=self.state.get_heartbeat_interval())
 
 
 class AppendEntriesTask:
-    def __init__(self, raft, msg, msg_gateway, executor):
+    def __init__(self, state, msg, msg_board, executor):
         self.executor = executor
-        self.msg_gateway = msg_gateway
+        self.msg_board = msg_board
         self.msg = msg
-        self.raft = raft
-        self.logger = Logger(address=raft.get_address())
+        self.state = state
+        self.logger = Logger(address=state.get_address())
 
     def run(self):
         if self.leaders_term_stale() or self.log_is_inconsistent():
@@ -60,10 +60,10 @@ class AppendEntriesTask:
 
     def log_is_inconsistent(self):
         expected_term, expected_index = self.exp_last_term_index()
-        return self.raft.get_last_log_term() != expected_term or self.raft.get_last_log_index() != expected_index
+        return self.state.get_last_log_term() != expected_term or self.state.get_last_log_index() != expected_index
 
     def leaders_term_stale(self):
-        return self.raft.get_current_term() > self.leaders_term()
+        return self.state.get_current_term() > self.leaders_term()
 
     def exp_last_term_index(self):
         if 'exp_last_log_entry' not in self.msg:
@@ -73,30 +73,30 @@ class AppendEntriesTask:
         return entry['term'], entry['index']
 
     def reject_entries(self):
-        self.msg_gateway.send_append_entries_response(sender=self.raft, receiver=self.leaders_address(), ok=False)
+        self.msg_board.send_append_entries_response(receiver=self.leaders_address(), ok=False)
 
     def is_follower(self):
-        return self.raft.get_role() == Role.FOLLOWER
+        return self.state.get_role() == Role.FOLLOWER
 
     def become_follower(self):
-        self.raft.become_follower(peers_term=self.leaders_term())
+        self.state.become_follower(peers_term=self.leaders_term())
         self.executor.cancel(HeartbeatTask)
         self.executor.cancel(ElectionTask)
         self.executor.schedule(
-            task=ElectionTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
-            delay=self.raft.next_election_timeout()
+            task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+            delay=self.state.next_election_timeout()
         )
 
     def heard_from_leader(self):
-        self.raft.heard_from_peer(peers_term=self.leaders_term())
+        self.state.heard_from_peer(peers_term=self.leaders_term())
         self.executor.cancel(ElectionTask)
         self.executor.schedule(
-            task=ElectionTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
-            delay=self.raft.next_election_timeout()
+            task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+            delay=self.state.next_election_timeout()
         )
 
     def finished_appending_entries(self):
-        self.msg_gateway.send_append_entries_response(sender=self.raft, receiver=self.leaders_address(), ok=True)
+        self.msg_board.send_append_entries_response(receiver=self.leaders_address(), ok=True)
 
     def leaders_address(self):
         return self.msg['sender']
@@ -107,12 +107,12 @@ class AppendEntriesTask:
 
 class AppendEntriesResponseTask:
 
-    def __init__(self, raft, msg, executor, msg_gateway):
+    def __init__(self, state, msg, executor, msg_board):
         self.msg = msg
-        self.msg_gateway = msg_gateway
+        self.msg_board = msg_board
         self.executor = executor
-        self.raft = raft
-        self.logger = Logger(address=raft.get_address())
+        self.state = state
+        self.logger = Logger(address=state.get_address())
 
     def run(self):
         if not self.is_leader() or self.request_successful():
@@ -122,49 +122,49 @@ class AppendEntriesResponseTask:
             self.become_follower()
 
     def become_follower(self):
-        self.raft.become_follower(peers_term=self.peers_term())
+        self.state.become_follower(peers_term=self.peers_term())
         self.executor.cancel(HeartbeatTask)
         self.executor.schedule(
-            task=ElectionTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
-            delay=self.raft.next_election_timeout()
+            task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+            delay=self.state.next_election_timeout()
         )
 
     def request_successful(self):
         return self.msg['ok']
 
     def is_stale(self):
-        return self.raft.get_current_term() < self.msg['senders_term']
+        return self.state.get_current_term() < self.msg['senders_term']
 
     def is_leader(self):
-        return self.raft.get_role() == Role.LEADER
+        return self.state.get_role() == Role.LEADER
 
     def peers_term(self):
         return self.msg['senders_term']
 
 
 class ElectionTask:
-    def __init__(self, raft, executor, msg_gateway):
-        self.msg_gateway = msg_gateway
+    def __init__(self, state, executor, msg_board):
+        self.msg_board = msg_board
         self.executor = executor
-        self.raft = raft
-        self.logger = Logger(address=raft.get_address())
+        self.state = state
+        self.logger = Logger(address=state.get_address())
 
     def run(self):
         self.logger.info('started election')
-        self.raft.start_election()
-        self.msg_gateway.request_votes(sender=self.raft)
+        self.state.start_election()
+        self.msg_board.request_votes()
         self.executor.schedule(
-            task=ElectionTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
-            delay=self.raft.next_election_timeout()
+            task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+            delay=self.state.next_election_timeout()
         )
 
 
 class RequestVoteTask:
-    def __init__(self, raft, executor, msg, msg_gateway):
-        self.msg_gateway = msg_gateway
+    def __init__(self, state, executor, msg, msg_board):
+        self.msg_board = msg_board
         self.executor = executor
         self.msg = msg
-        self.raft = raft
+        self.state = state
 
     def run(self):
         if self.peers_term_is_stale() or self.peers_log_is_stale():
@@ -179,38 +179,36 @@ class RequestVoteTask:
         self.finish_voting()
 
     def reject_request(self):
-        self.msg_gateway.send_request_vote_response(sender=self.raft, receiver=self.peers_address(), ok=False)
+        self.msg_board.send_request_vote_response(receiver=self.peers_address(), ok=False)
 
     def become_follower(self):
-        self.raft.become_follower(peers_term=self.peers_term())
+        self.state.become_follower(peers_term=self.peers_term())
         self.executor.cancel(HeartbeatTask)
         self.executor.cancel(ElectionTask)
         self.executor.schedule(
-            task=ElectionTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
-            delay=self.raft.next_election_timeout()
+            task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+            delay=self.state.next_election_timeout()
         )
 
     def heard_from_peer(self):
-        self.raft.heard_from_peer(peers_term=self.peers_term())
+        self.state.heard_from_peer(peers_term=self.peers_term())
         self.executor.cancel(ElectionTask)
         self.executor.schedule(
-            task=ElectionTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
-            delay=self.raft.next_election_timeout()
+            task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+            delay=self.state.next_election_timeout()
         )
 
     def finish_voting(self):
-        self.msg_gateway.send_request_vote_response(sender=self.raft,
-                                                    receiver=self.peers_address(),
-                                                    ok=self.raft.vote())
+        self.msg_board.send_request_vote_response(receiver=self.peers_address(), ok=self.state.vote())
 
     def term_is_stale(self):
-        return self.raft.get_current_term() < self.peers_term()
+        return self.state.get_current_term() < self.peers_term()
 
     def peers_latest_log_entry(self):
         pass
 
     def peers_term_is_stale(self):
-        return self.raft.get_current_term() > self.peers_term()
+        return self.state.get_current_term() > self.peers_term()
 
     def peers_log_is_stale(self):
         term, index = self.last_log_term_index()
@@ -229,7 +227,7 @@ class RequestVoteTask:
         return last_log_entry['term'], last_log_entry['index']
 
     def last_log_term_index(self):
-        return self.raft.get_last_log_term(), self.raft.get_last_log_index()
+        return self.state.get_last_log_term(), self.state.get_last_log_index()
 
     def peers_address(self):
         return self.msg['sender']
@@ -238,16 +236,16 @@ class RequestVoteTask:
         return self.msg['senders_term']
 
     def is_follower(self):
-        return self.raft.get_role() == Role.FOLLOWER
+        return self.state.get_role() == Role.FOLLOWER
 
 
 class RequestVoteResponseTask:
 
-    def __init__(self, raft, executor, msg, msg_gateway):
-        self.msg_gateway = msg_gateway
+    def __init__(self, state, executor, msg, msg_board):
+        self.msg_board = msg_board
         self.executor = executor
         self.msg = msg
-        self.raft = raft
+        self.state = state
 
     def run(self):
         if not self.is_candidate():
@@ -263,33 +261,33 @@ class RequestVoteResponseTask:
             self.become_leader()
 
     def become_follower(self):
-        self.raft.become_follower(peers_term=self.peers_term())
+        self.state.become_follower(peers_term=self.peers_term())
         self.executor.cancel(ElectionTask)
         self.executor.schedule(
-            task=ElectionTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
-            delay=self.raft.next_election_timeout()
+            task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+            delay=self.state.next_election_timeout()
         )
 
     def update_vote_count(self):
         if self.msg['ok']:
-            self.raft.got_vote(self.msg['sender'])
+            self.state.got_vote(self.msg['sender'])
 
     def become_leader(self):
-        self.raft.become_leader()
+        self.state.become_leader()
         self.executor.cancel(ElectionTask)
         self.executor.schedule(
-            task=HeartbeatTask(raft=self.raft, executor=self.executor, msg_gateway=self.msg_gateway),
-            delay=self.raft.get_heartbeat_interval()
+            task=HeartbeatTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+            delay=self.state.get_heartbeat_interval()
         )
 
     def has_quorum(self):
-        return self.raft.has_quorum(peer_count=self.msg_gateway.get_peer_count())
+        return self.state.has_quorum(peer_count=self.msg_board.get_peer_count())
 
     def is_candidate(self):
-        return self.raft.get_role() == Role.CANDIDATE
+        return self.state.get_role() == Role.CANDIDATE
 
     def is_stale(self):
-        return self.raft.get_current_term() < self.peers_term()
+        return self.state.get_current_term() < self.peers_term()
 
     def peers_term(self):
         return self.msg['senders_term']

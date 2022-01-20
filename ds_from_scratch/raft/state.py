@@ -3,8 +3,9 @@ from random import Random
 import math
 
 
-class Raft:
-    def __init__(self, address,
+class RaftState:
+    def __init__(self,
+                 address,
                  role,
                  log=[],
                  state_machine=None,

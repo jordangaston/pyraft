@@ -36,16 +36,18 @@ class Network:
         self.ni_by_hostname = {}
         self.connections = set()
 
+    def send(self, msg):
+        self.queue.put(msg)
+
     def are_connected(self, src, dst):
         return tuple(sorted([src, dst])) in self.connections
 
     def hostnames(self):
         return self.ni_by_hostname.keys()
 
-    def add_server(self, server):
-        ni = server.get_network_interface()
-        self.ni_by_hostname[ni.get_hostname()] = ni
-        self.connect_to_all(ni.get_hostname())
+    def add_network_interface(self, ni):
+        self.ni_by_hostname[ni.get_local_hostname()] = ni
+        self.connect_to_all(ni.get_local_hostname())
 
     def connect_to_all(self, hostname):
         for peer_hostname in self.ni_by_hostname.keys():
@@ -67,113 +69,54 @@ class Network:
     def run(self):
         while True:
             msg = yield self.queue.get()
-            if self.are_connected(msg.src_address.hostname, msg.dst_address.hostname):
-                ni = self.ni_by_hostname[msg.dst_address.hostname]
+            if self.are_connected(msg.src_hostname, msg.dst_hostname):
+                ni = self.ni_by_hostname[msg.dst_hostname]
                 ni.queue.put(msg)
-
-
-class IncomingConnection:
-
-    def __init__(self, msg):
-        self.msg = msg
-
-    def recv(self):
-        return self.msg.body
-
-    def send(self, msg):
-        network = Network.get_instance()
-        network.queue.put(Message(
-            env=Environment.get_instance(),
-            src_address=self.msg.dst_address,
-            dst_address=self.msg.src_address,
-            body=msg
-        ))
-
-    def close(self):
-        pass
-
-
-class OutgoingConnection:
-
-    def __init__(self, port, src_address, dst_address):
-        self.src_address = src_address
-        self.dst_address = dst_address
-        self.queue = port
-
-    def recv(self):
-        msg = yield self.queue.get()
-        return msg.body
-
-    def send(self, msg):
-        network = Network.get_instance()
-        network.queue.put(Message(
-            env=Environment.get_instance(),
-            src_address=self.src_address,
-            dst_address=self.dst_address,
-            body=msg
-        ))
-
-    def close(self):
-        self.queue = None
 
 
 class NetworkInterface:
     instances = {}
 
     @classmethod
-    def get_hostnames(self):
-        return Network.get_instance().hostnames()
-
-    @classmethod
-    def create_instance(cls, hostname):
-        cls.instances[hostname] = NetworkInterface(env=Environment.get_instance(), hostname=hostname)
-        return cls.instances[hostname]
+    def create_instance(cls, raft):
+        cls.instances[raft.get_hostname()] = NetworkInterface(Environment.get_instance(), raft)
+        return cls.instances[raft.get_hostname()]
 
     @classmethod
     def get_instance(cls, hostname):
-        if hostname not in cls.instances:
-            cls.instances[hostname] = NetworkInterface(env=Environment.get_instance(), hostname=hostname)
         return cls.instances[hostname]
 
-    def __init__(self, env, hostname):
-        self.hostname = hostname
+    def __init__(self, env, raft):
         self.queue = simpy.Store(env=env, capacity=simpy.core.Infinity)
-        self.ports = {
-            0: simpy.Store(env=env, capacity=simpy.core.Infinity),
-            1: simpy.Store(env=env, capacity=simpy.core.Infinity),
-            2: simpy.Store(env=env, capacity=simpy.core.Infinity)
-        }
+        self.raft = raft
 
-    def get_hostname(self):
-        return self.hostname
+    def get_hostnames(self):
+        return Network.get_instance().hostnames()
 
-    def port(self, port):
-        return self.ports[port]
+    def get_local_hostname(self):
+        return self.raft.get_hostname()
 
-    def open_connection(self, src_port, dst_port, dst_hostname):
-        dst_address = Address(hostname=dst_hostname, port=dst_port)
-        src_address = Address(hostname=self.hostname, port=src_port)
-        return OutgoingConnection(port=self.ports[src_port], src_address=src_address, dst_address=dst_address)
+    def send(self, msg, dst_hostname):
+        network = Network.get_instance()
+        network.send(Message(
+            env=Environment.get_instance(),
+            src_hostname=self.raft.get_hostname(),
+            dst_hostname=dst_hostname,
+            body=msg
+        ))
 
     def listen(self):
         while True:
             msg = yield self.queue.get()
-            port = self.ports[msg.dst_address.port]
-            port.put(msg)
-
-
-class Address:
-    def __init__(self, hostname, port):
-        self.hostname = hostname
-        self.port = port
+            self.raft.process_message(msg)
 
 
 class Message(simpy.Event):
 
-    def __init__(self, env, src_address, dst_address, body):
+    def __init__(self, env, src_hostname, dst_hostname, body):
         super().__init__(env)
-        self.src_address = src_address
-        self.dst_address = dst_address
+        self.src_hostname = src_hostname
+        self.dst_hostname = dst_hostname
         self.body = body
 
 

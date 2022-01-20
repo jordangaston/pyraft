@@ -1,6 +1,6 @@
-from ds_from_scratch.raft.state import Raft
-from ds_from_scratch.raft.server import RaftServer
-from ds_from_scratch.raft.util import Executor, MessageGateway
+from ds_from_scratch.raft.state import RaftState
+from ds_from_scratch.raft.server import Raft
+from ds_from_scratch.raft.util import Executor, MessageBoard
 from ds_from_scratch.sim.core import *
 from random import Random
 
@@ -51,25 +51,23 @@ class SimulationBuilder:
         self.heartbeat_interval = interval
 
     def with_raft_node(self, hostname, role, current_term=0, prng=Random()):
-        network_interface = NetworkInterface.create_instance(hostname)
-        self.env.process(network_interface.listen())
-
         simulation_executor = SimulationExecutor()
         self.env.process(simulation_executor.run())
         executor = Executor(executor=simulation_executor)
 
-        raft = Raft(address=hostname,
-                    current_term=current_term,
-                    role=role,
-                    heartbeat_interval=self.heartbeat_interval,
-                    prng=prng)
+        state = RaftState(address=hostname,
+                          current_term=current_term,
+                          role=role,
+                          heartbeat_interval=self.heartbeat_interval,
+                          prng=prng)
 
-        self.raft_by_address[hostname] = raft
+        self.raft_by_address[hostname] = state
 
-        server = RaftServer(executor=executor,
-                            raft=raft,
-                            msg_gateway=MessageGateway(),
-                            network_interface=network_interface)
-        self.env.process(server.run())
+        raft = Raft(executor=executor,
+                    state=state,
+                    msg_board=MessageBoard(raft_state=state))
 
-        self.network.add_server(server)
+        network_interface = NetworkInterface.create_instance(raft)
+        self.env.process(network_interface.listen())
+
+        self.network.add_network_interface(network_interface)

@@ -1,5 +1,5 @@
 from ds_from_scratch.raft.state import RaftState
-from ds_from_scratch.raft.task import HeartbeatTask, ElectionTask, RequestVoteResponseTask
+from ds_from_scratch.raft.task import ReplicateEntriesTask, ElectionTask, RequestVoteResponseTask
 from ds_from_scratch.raft.util import Role, MessageBoard, Executor
 
 
@@ -56,7 +56,7 @@ def test_becomes_leader_when_has_quorum(mocker):
     executor.cancel.assert_called_once_with(ElectionTask)
     executor.schedule.assert_called_once()
     args = executor.schedule.call_args[1]
-    assert type(args['task']) is HeartbeatTask
+    assert type(args['task']) is ReplicateEntriesTask
     assert args['delay'] == 5
 
 

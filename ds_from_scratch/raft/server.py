@@ -3,12 +3,16 @@ from ds_from_scratch.raft.util import Logger
 
 
 class Raft:
+    """
+    A Raft node implemented using Actor pattern
+    """
+
     def __init__(self, state, executor, msg_board):
         self.executor = executor
         self.state = state
         self.msg_board = msg_board
         self.logger = Logger(address=state.get_address())
-        
+
         self.executor.submit(StartServerTask(
             state=self.state,
             msg_board=self.msg_board,
@@ -16,12 +20,27 @@ class Raft:
         ))
 
     def get_hostname(self):
+        """
+
+        :return:
+        """
         return self.state.get_address()
 
     def execute_command(self, msg):
+        """
+
+        :param msg:
+        :return:
+        """
         pass
 
     def process_message(self, msg):
+        """
+
+        :param msg:
+        :return:
+        """
+
         operation = msg.body['operation']
         self.logger.info("received message {op} from {sender}".format(op=operation, sender=msg.src_hostname))
         if operation == 'append_entries':

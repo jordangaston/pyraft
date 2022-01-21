@@ -1,5 +1,5 @@
 from ds_from_scratch.raft.log import LogEntry
-from ds_from_scratch.raft.task import AppendEntriesTask, ElectionTask, HeartbeatTask
+from ds_from_scratch.raft.task import AppendEntriesTask, ElectionTask, ReplicateEntriesTask
 from ds_from_scratch.raft.state import RaftState
 from ds_from_scratch.raft.util import Role, Executor, MessageBoard
 
@@ -82,7 +82,7 @@ def test_is_candidate(mocker):
     task.run()
 
     state.become_follower.assert_called_once_with(peers_term=10)
-    executor.cancel.assert_has_calls([mocker.call(HeartbeatTask), mocker.call(ElectionTask)], any_order=True)
+    executor.cancel.assert_has_calls([mocker.call(ReplicateEntriesTask), mocker.call(ElectionTask)], any_order=True)
     executor.schedule.assert_called_once()
     args = executor.schedule.call_args[1]
     assert type(args['task']) is ElectionTask
@@ -112,7 +112,7 @@ def test_is_leader(mocker):
     task.run()
 
     state.become_follower.assert_called_once_with(peers_term=10)
-    executor.cancel.assert_has_calls([mocker.call(HeartbeatTask), mocker.call(ElectionTask)], any_order=True)
+    executor.cancel.assert_has_calls([mocker.call(ReplicateEntriesTask), mocker.call(ElectionTask)], any_order=True)
     args = executor.schedule.call_args[1]
     assert type(args['task']) is ElectionTask
     assert args['delay'] == 12

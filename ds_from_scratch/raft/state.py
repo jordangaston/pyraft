@@ -28,6 +28,15 @@ class RaftState:
         self.last_commit_index = 0
         self.last_applied_index = 0
 
+    def peers_last_repl_index(self, peer):
+        pass
+
+    def peers_next_index(self, peer):
+        pass
+
+    def next_index(self):
+        pass
+
     def get_last_log_term(self):
         entry = self.__last_log_entry()
         if not entry:

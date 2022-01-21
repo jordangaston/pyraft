@@ -22,6 +22,9 @@ class MessageBoard:
     def __init__(self, raft_state):
         self.raft_state = raft_state
 
+    def get_peers(self):
+        return self.network_interface().get_hostnames()
+
     def get_peer_count(self):
 
         return len(self.network_interface().get_hostnames())
@@ -32,7 +35,7 @@ class MessageBoard:
     def send_append_entries_response(self, receiver, ok):
         self.__send('append_entries_response', receiver, ok)
 
-    def send_heartbeat(self):
+    def send_heartbeat(self, receiver=None):
         self.__broadcast('append_entries')
 
     def request_votes(self):

@@ -1,8 +1,13 @@
 from ds_from_scratch.raft.util import Role
 from ds_from_scratch.raft.util import Logger
+from ds_from_scratch.raft.log import LogEntry
 
 
 class StartServerTask:
+    """
+    Initializes a raft node upon startup
+    """
+
     def __init__(self, state, executor, msg_board):
         self.executor = executor
         self.state = state
@@ -13,7 +18,8 @@ class StartServerTask:
         role = self.state.get_role()
         if role is Role.LEADER:
             self.logger.info('is leader')
-            self.executor.submit(HeartbeatTask(state=self.state, executor=self.executor, msg_board=self.msg_board))
+            self.executor.submit(
+                ReplicateEntriesTask(state=self.state, executor=self.executor, msg_board=self.msg_board))
         elif role is Role.FOLLOWER:
             self.logger.info('is follower')
             self.executor.schedule(
@@ -23,22 +29,69 @@ class StartServerTask:
         # TODO add handling for candidates
 
 
-class HeartbeatTask:
-    def __init__(self, state, msg_board, executor):
+class ReplicateEntriesTask:
+    """
+    Sends append_entries messages from the leader to all peers.
+    Exact behavior depends on the current state of the leader
+
+    1. It sends a heartbeat message (contains no entries) if...
+       a. The leader doesn't know the last replicated index for the follower
+       b. The follower is up to date
+
+    2. Otherwise it sends all pending entries
+
+    Each message includes...
+    1. The leaders current term
+    2. The leaders hostname
+    3. The entries to append
+    4. The last expected entry's term and index
+    """
+
+    def __init__(self, state, msg_board, executor, recursive=True):
         self.state = state
         self.msg_board = msg_board
         self.executor = executor
+        self.recursive = recursive
 
     def run(self):
         if self.state.get_role() is not Role.LEADER:
             return
 
-        self.msg_board.send_heartbeat()
-        self.executor.schedule(task=HeartbeatTask(state=self.state, msg_board=self.msg_board, executor=self.executor),
-                               delay=self.state.get_heartbeat_interval())
+        for peer in self.msg_board.get_peers():
+            if self.peer_up_to_date(peer) or self.peers_replicated_index_unknown(peer):
+                self.send_heartbeat(peer)
+            else:
+                self.send_entries(peer)
+
+        if self.recursive:
+            self.executor.schedule(
+                task=ReplicateEntriesTask(state=self.state, msg_board=self.msg_board, executor=self.executor),
+                delay=self.state.get_heartbeat_interval())
+
+    def peer_up_to_date(self, peer):
+        return self.state.next_index() == self.state.peers_next_index(peer)
+
+    def peers_replicated_index_unknown(self, peer):
+        return self.state.peers_last_repl_index(peer) is None
+
+    def send_heartbeat(self, peer):
+        self.msg_board.send_heartbeat(peer)
+
+    def send_entries(self, peer):
+        self.msg_board.append_entries(peer)
 
 
 class AppendEntriesTask:
+    """
+    Appends entries to the nodes log.
+
+    1. Entries are rejected if...
+      a. the nodes term is greater than the leaders term
+      b. the log consistency check fails
+    2. If the leaders term is greater than the nodes term it becomes a follower
+    3. The index of the last replicated entry is always returned to the sender
+    """
+
     def __init__(self, state, msg, msg_board, executor):
         self.executor = executor
         self.msg_board = msg_board
@@ -80,7 +133,7 @@ class AppendEntriesTask:
 
     def become_follower(self):
         self.state.become_follower(peers_term=self.leaders_term())
-        self.executor.cancel(HeartbeatTask)
+        self.executor.cancel(ReplicateEntriesTask)
         self.executor.cancel(ElectionTask)
         self.executor.schedule(
             task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
@@ -106,6 +159,14 @@ class AppendEntriesTask:
 
 
 class AppendEntriesResponseTask:
+    """
+    Handles messages from peers after attempting to append entries. It's exact behavior depends on the nodes state.
+
+    1. Messages are ignored unless the node is the leader
+    2. If the entries were successfully appended update the last replicated entry field for the follower
+    3. Otherwise update the next entry field for the follower.  The correct entry will be retransmitted once the heartbeat
+       timer elapses.
+    """
 
     def __init__(self, state, msg, executor, msg_board):
         self.msg = msg
@@ -123,7 +184,7 @@ class AppendEntriesResponseTask:
 
     def become_follower(self):
         self.state.become_follower(peers_term=self.peers_term())
-        self.executor.cancel(HeartbeatTask)
+        self.executor.cancel(ReplicateEntriesTask)
         self.executor.schedule(
             task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
             delay=self.state.next_election_timeout()
@@ -160,6 +221,10 @@ class ElectionTask:
 
 
 class RequestVoteTask:
+    """
+    Handles vote requests from candidates
+    """
+
     def __init__(self, state, executor, msg, msg_board):
         self.msg_board = msg_board
         self.executor = executor
@@ -183,7 +248,7 @@ class RequestVoteTask:
 
     def become_follower(self):
         self.state.become_follower(peers_term=self.peers_term())
-        self.executor.cancel(HeartbeatTask)
+        self.executor.cancel(ReplicateEntriesTask)
         self.executor.cancel(ElectionTask)
         self.executor.schedule(
             task=ElectionTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
@@ -240,6 +305,9 @@ class RequestVoteTask:
 
 
 class RequestVoteResponseTask:
+    """
+    Handles a peers response after requesting a vote.
+    """
 
     def __init__(self, state, executor, msg, msg_board):
         self.msg_board = msg_board
@@ -276,7 +344,7 @@ class RequestVoteResponseTask:
         self.state.become_leader()
         self.executor.cancel(ElectionTask)
         self.executor.schedule(
-            task=HeartbeatTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
+            task=ReplicateEntriesTask(state=self.state, executor=self.executor, msg_board=self.msg_board),
             delay=self.state.get_heartbeat_interval()
         )
 
@@ -291,3 +359,39 @@ class RequestVoteResponseTask:
 
     def peers_term(self):
         return self.msg['senders_term']
+
+
+class AcceptEntryTask:
+    """
+    Appends an entry for the cmd to the leaders log
+    and attempts to replicate it (and any other un-replicated entries) immediately
+    """
+
+    def __init__(self, state, cmd, executor, msg_board):
+        self.msg_board = msg_board
+        self.cmd = cmd
+        self.state = state
+        self.executor = executor
+
+    def run(self):
+        if not self.is_leader():
+            return
+
+        entry = LogEntry(
+            index=self.state.next_index(),
+            term=self.state.get_current_term(),
+            body=self.cmd
+        )
+
+        self.state.append_entries(entry)
+
+        replication_task = ReplicateEntriesTask(
+            msg_board=self.msg_board,
+            state=self.state,
+            executor=self.executor,
+            recursive=False
+        )
+        replication_task.run()
+
+    def is_leader(self):
+        return self.state.get_role() == Role.LEADER

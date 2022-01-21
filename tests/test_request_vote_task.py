@@ -1,4 +1,4 @@
-from ds_from_scratch.raft.task import RequestVoteTask, HeartbeatTask, ElectionTask
+from ds_from_scratch.raft.task import RequestVoteTask, ReplicateEntriesTask, ElectionTask
 from ds_from_scratch.raft.state import RaftState
 from ds_from_scratch.raft.util import Role, Executor, MessageBoard
 from ds_from_scratch.raft.log import LogEntry
@@ -82,7 +82,7 @@ def test_leader_becomes_follower_when_term_stale(mocker):
     task.run()
 
     state.become_follower.assert_called_once_with(peers_term=10)
-    executor.cancel.assert_has_calls([mocker.call(HeartbeatTask), mocker.call(ElectionTask)], any_order=True)
+    executor.cancel.assert_has_calls([mocker.call(ReplicateEntriesTask), mocker.call(ElectionTask)], any_order=True)
     executor.schedule.assert_called_once()
     args = executor.schedule.call_args[1]
     assert type(args['task']) is ElectionTask

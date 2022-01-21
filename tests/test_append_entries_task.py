@@ -1,7 +1,8 @@
 from ds_from_scratch.raft.log import LogEntry
 from ds_from_scratch.raft.task import AppendEntriesTask, ElectionTask, ReplicateEntriesTask
 from ds_from_scratch.raft.state import RaftState
-from ds_from_scratch.raft.util import Role, Executor, MessageBoard
+from ds_from_scratch.raft.util import Role, Executor
+from ds_from_scratch.raft.message_board import MessageBoard
 
 
 def test_entries_rejected_with_stale_leader_term(mocker):

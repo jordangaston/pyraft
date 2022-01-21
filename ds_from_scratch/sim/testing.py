@@ -1,6 +1,7 @@
 from ds_from_scratch.raft.state import RaftState
 from ds_from_scratch.raft.server import Raft
-from ds_from_scratch.raft.util import Executor, MessageBoard
+from ds_from_scratch.raft.util import Executor
+from ds_from_scratch.raft.message_board import MessageBoard
 from ds_from_scratch.sim.core import *
 from random import Random
 

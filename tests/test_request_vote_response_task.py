@@ -1,6 +1,7 @@
 from ds_from_scratch.raft.state import RaftState
 from ds_from_scratch.raft.task import ReplicateEntriesTask, ElectionTask, RequestVoteResponseTask
-from ds_from_scratch.raft.util import Role, MessageBoard, Executor
+from ds_from_scratch.raft.util import Role, Executor
+from ds_from_scratch.raft.message_board import MessageBoard
 
 
 def test_becomes_follower_when_stale(mocker):

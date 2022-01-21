@@ -1,6 +1,7 @@
 from ds_from_scratch.raft.task import ReplicateEntriesTask
 from ds_from_scratch.raft.state import RaftState
-from ds_from_scratch.raft.util import Role, MessageBoard
+from ds_from_scratch.raft.util import Role
+from ds_from_scratch.raft.message_board import MessageBoard
 
 
 def test_send_heartbeat_when_peer_up_to_date(mocker):

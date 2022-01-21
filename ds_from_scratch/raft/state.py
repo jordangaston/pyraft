@@ -29,13 +29,17 @@ class RaftState:
         self.last_applied_index = 0
 
     def peers_last_repl_index(self, peer):
-        pass
+        if peer in self.last_index_by_hostname:
+            return self.last_index_by_hostname[peer]
+        return None
 
     def peers_next_index(self, peer):
-        pass
+        if peer in self.next_index_by_hostname:
+            return self.next_index_by_hostname[peer]
+        return None
 
     def next_index(self):
-        pass
+        return len(self.log) + 1
 
     def get_last_log_term(self):
         entry = self.__last_log_entry()

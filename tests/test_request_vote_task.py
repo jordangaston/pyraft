@@ -1,6 +1,7 @@
 from ds_from_scratch.raft.task import RequestVoteTask, ReplicateEntriesTask, ElectionTask
 from ds_from_scratch.raft.state import RaftState
-from ds_from_scratch.raft.util import Role, Executor, MessageBoard
+from ds_from_scratch.raft.util import Role, Executor
+from ds_from_scratch.raft.message_board import MessageBoard
 from ds_from_scratch.raft.log import LogEntry
 
 

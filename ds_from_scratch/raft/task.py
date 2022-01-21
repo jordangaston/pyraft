@@ -58,7 +58,7 @@ class ReplicateEntriesTask:
             return
 
         for peer in self.msg_board.get_peers():
-            if self.peer_up_to_date(peer) or self.peers_replicated_index_unknown(peer):
+            if self.peer_up_to_date(peer) or self.peers_last_repl_index_unknown(peer):
                 self.send_heartbeat(peer)
             else:
                 self.send_entries(peer)
@@ -71,7 +71,7 @@ class ReplicateEntriesTask:
     def peer_up_to_date(self, peer):
         return self.state.next_index() == self.state.peers_next_index(peer)
 
-    def peers_replicated_index_unknown(self, peer):
+    def peers_last_repl_index_unknown(self, peer):
         return self.state.peers_last_repl_index(peer) is None
 
     def send_heartbeat(self, peer):

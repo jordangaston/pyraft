@@ -23,38 +23,67 @@ class RaftState:
         self.prng = prng
         self.votes = set()
         self.voted = False
+        self.default_next_index = None
         self.next_index_by_hostname = {}
         self.last_index_by_hostname = {}
         self.last_commit_index = 0
         self.last_applied_index = 0
 
+    def set_peers_last_repl_index(self, peer, index):
+        assert self.get_role() == Role.LEADER
+        self.last_index_by_hostname[peer] = index
+
     def peers_last_repl_index(self, peer):
         if peer in self.last_index_by_hostname:
             return self.last_index_by_hostname[peer]
-        return None
+        return 0
+
+    def set_peers_next_index(self, peer, index):
+        assert self.get_role() == Role.LEADER
+        self.next_index_by_hostname[peer] = index
 
     def peers_next_index(self, peer):
         if peer in self.next_index_by_hostname:
             return self.next_index_by_hostname[peer]
-        return None
+        return self.default_next_index
 
     def next_index(self):
         return len(self.log) + 1
 
-    def get_last_log_term(self):
+    def last_term(self):
         entry = self.__last_log_entry()
-        if not entry:
+        if entry is None:
             return 0
         return entry.get_term()
 
-    def get_last_log_index(self):
+    def last_index(self):
         entry = self.__last_log_entry()
-        if not entry:
+        if entry is None:
             return 0
         return entry.get_index()
 
-    def append_entry(self, entry):
-        pass
+    def slice_entries(self, index):
+        if index > len(self.log):
+            return []
+
+        return self.log[(index - 1):]
+
+    def get_entry(self, index):
+        if index > len(self.log) or len(self.log) == 0:
+            return None
+        return self.log[index - 1]
+
+    def get_entries(self):
+        return self.log.copy()
+
+    def append_entries(self, *entries):
+        for entry in entries:
+            if entry.get_index() > len(self.log):
+                self.log.append(entry)
+            else:
+                self.log[entry.get_index() - 1] = entry
+        last_entry = entries[len(entries) - 1]
+        return last_entry.get_index()
 
     def commit_entry(self, index):
         pass
@@ -64,6 +93,9 @@ class RaftState:
             'role': self.role,
             'current_term': self.current_term,
         }
+
+    def get_votes(self):
+        return self.votes.copy()
 
     def got_vote(self, sender):
         self.votes.add(sender)
@@ -75,29 +107,53 @@ class RaftState:
         return True
 
     def start_election(self):
-        self.__clear_election_state()
-        self.current_term += 1
+        """
+        from Candidate or Follower
+        - election timeout is hit
+        """
+        self.__clear_candidate_state()  # in case it is the candidate
+        self.__change_term(new_term=self.current_term + 1)
         self.role = Role.CANDIDATE
-        self.votes.add(self.get_address())
-        self.voted = True
+        self.vote()
+        self.got_vote(self.get_address())  # vote for myself
 
     def heard_from_peer(self, peers_term):
-        self.current_term = peers_term
+        if self.current_term < peers_term:
+            self.__change_term(new_term=peers_term)
 
     def next_election_timeout(self):
         return self.prng.randint(self.election_timeout_range[0], self.election_timeout_range[1])
 
     def become_follower(self, peers_term):
-        self.role = Role.FOLLOWER
+        """
+        from Leader
+        - term is stale
+
+        from Candidate
+        - term is stale
+        - discovered valid leader
+        """
+        assert self.role != Role.FOLLOWER
+        assert peers_term >= self.current_term  # a valid leaders term must be at least a big
+
         if self.current_term < peers_term:
-            self.current_term = peers_term
-            self.__clear_election_state()
+            self.__change_term(new_term=peers_term)
+
+        self.__clear_leader_state()
+        self.__clear_candidate_state()
+
+        self.role = Role.FOLLOWER
 
     def become_leader(self):
-        if self.role != Role.CANDIDATE:
-            return
+        """
+        from Candidate
+        - has received quorum
+        """
+        assert self.role == Role.CANDIDATE
+
+        self.__clear_candidate_state()
+        self.default_next_index = self.next_index()
         self.role = Role.LEADER
-        self.__clear_election_state()
 
     def get_heartbeat_interval(self):
         return self.heartbeat_interval
@@ -115,12 +171,20 @@ class RaftState:
         quorum = math.ceil(peer_count / 2)
         return len(self.votes) >= quorum
 
-    def __clear_election_state(self):
-        self.votes.clear()
-        self.voted = False
-
     def __last_log_entry(self):
         num_entries = len(self.log)
         if num_entries == 0:
             return None
         return self.log[num_entries - 1]
+
+    def __change_term(self, new_term):
+        self.current_term = new_term
+        self.voted = False
+
+    def __clear_candidate_state(self):
+        self.votes.clear()
+
+    def __clear_leader_state(self):
+        self.next_index_by_hostname.clear()
+        self.last_index_by_hostname.clear()
+        self.default_next_index = None

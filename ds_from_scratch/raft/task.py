@@ -35,8 +35,7 @@ class ReplicateEntriesTask:
     Exact behavior depends on the current state of the leader
 
     1. It sends a heartbeat message (contains no entries) if...
-       a. The leader doesn't know the last replicated index for the follower
-       b. The follower is up to date
+       a. The follower is up to date
 
     2. Otherwise it sends all pending entries
 
@@ -58,7 +57,7 @@ class ReplicateEntriesTask:
             return
 
         for peer in self.msg_board.get_peers():
-            if self.peer_up_to_date(peer) or self.peers_last_repl_index_unknown(peer):
+            if self.peer_up_to_date(peer):
                 self.send_heartbeat(peer)
             else:
                 self.send_entries(peer)
@@ -70,9 +69,6 @@ class ReplicateEntriesTask:
 
     def peer_up_to_date(self, peer):
         return self.state.next_index() == self.state.peers_next_index(peer)
-
-    def peers_last_repl_index_unknown(self, peer):
-        return self.state.peers_last_repl_index(peer) is None
 
     def send_heartbeat(self, peer):
         self.msg_board.send_heartbeat(peer)
@@ -89,7 +85,7 @@ class AppendEntriesTask:
       a. the nodes term is greater than the leaders term
       b. the log consistency check fails
     2. If the leaders term is greater than the nodes term it becomes a follower
-    3. The index of the last replicated entry is always returned to the sender
+    3. The index and term of the last replicated entry is always returned to the sender
     """
 
     def __init__(self, state, msg, msg_board, executor):
@@ -109,11 +105,22 @@ class AppendEntriesTask:
         else:
             self.become_follower()
 
-        self.finished_appending_entries()
+        last_replicated_index = self.append_entries()
+
+        self.finished_appending_entries(last_replicated_index)
 
     def log_is_inconsistent(self):
+
         expected_term, expected_index = self.exp_last_term_index()
-        return self.state.get_last_log_term() != expected_term or self.state.get_last_log_index() != expected_index
+        if expected_term == 0 and expected_index == 0:
+            return False
+
+        entry = self.state.get_entry(expected_index)
+
+        if entry is None:
+            return True
+
+        return entry.get_term() != expected_term or entry.get_index() != expected_index
 
     def leaders_term_stale(self):
         return self.state.get_current_term() > self.leaders_term()
@@ -130,6 +137,12 @@ class AppendEntriesTask:
 
     def is_follower(self):
         return self.state.get_role() == Role.FOLLOWER
+
+    def append_entries(self):
+        entries = self.msg['entries']
+        if len(entries) == 0:
+            return 0
+        return self.state.append_entries(*self.msg['entries'])
 
     def become_follower(self):
         self.state.become_follower(peers_term=self.leaders_term())
@@ -148,8 +161,10 @@ class AppendEntriesTask:
             delay=self.state.next_election_timeout()
         )
 
-    def finished_appending_entries(self):
-        self.msg_board.send_append_entries_response(receiver=self.leaders_address(), ok=True)
+    def finished_appending_entries(self, last_repl_index):
+        self.msg_board.send_append_entries_response(receiver=self.leaders_address(),
+                                                    ok=True,
+                                                    last_repl_index=last_repl_index)
 
     def leaders_address(self):
         return self.msg['sender']
@@ -176,11 +191,25 @@ class AppendEntriesResponseTask:
         self.logger = Logger(address=state.get_address())
 
     def run(self):
-        if not self.is_leader() or self.request_successful():
+        if not self.is_leader():
             return
 
         if self.is_stale():
             self.become_follower()
+            return
+
+        if self.request_successful():
+            self.entries_appended()
+        else:
+            self.entries_rejected()
+
+    def entries_rejected(self):
+        self.state.set_peers_last_repl_index(self.peer(), self.msg['last_repl_index'])
+        self.state.set_peers_next_index(self.peer(), self.state.peers_next_index(self.peer()) - 1)
+
+    def entries_appended(self):
+        self.state.set_peers_last_repl_index(self.peer(), self.msg['last_repl_index'])
+        self.state.set_peers_next_index(self.peer(), self.msg['last_repl_index'] + 1)
 
     def become_follower(self):
         self.state.become_follower(peers_term=self.peers_term())
@@ -201,6 +230,9 @@ class AppendEntriesResponseTask:
 
     def peers_term(self):
         return self.msg['senders_term']
+
+    def peer(self):
+        return self.msg['sender']
 
 
 class ElectionTask:
@@ -223,6 +255,10 @@ class ElectionTask:
 class RequestVoteTask:
     """
     Handles vote requests from candidates
+
+    requests are rejected if...
+    - the candidates log is not at least as up to date
+    - the candidates term is not at least as up to date
     """
 
     def __init__(self, state, executor, msg, msg_board):
@@ -292,7 +328,7 @@ class RequestVoteTask:
         return last_log_entry['term'], last_log_entry['index']
 
     def last_log_term_index(self):
-        return self.state.get_last_log_term(), self.state.get_last_log_index()
+        return self.state.last_term(), self.state.last_index()
 
     def peers_address(self):
         return self.msg['sender']

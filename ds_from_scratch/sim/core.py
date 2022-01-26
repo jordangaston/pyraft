@@ -86,12 +86,18 @@ class NetworkInterface:
     def get_instance(cls, hostname):
         return cls.instances[hostname]
 
+    @classmethod
+    def get_hostnames(cls):
+        return Network.get_instance().hostnames()
+
+    @classmethod
+    def send(cls, src, dst, msg):
+        interface = cls.get_instance(hostname=src)
+        interface.send(msg=msg, dst_hostname=dst)
+
     def __init__(self, env, raft):
         self.queue = simpy.Store(env=env, capacity=simpy.core.Infinity)
         self.raft = raft
-
-    def get_hostnames(self):
-        return Network.get_instance().hostnames()
 
     def get_local_hostname(self):
         return self.raft.get_hostname()

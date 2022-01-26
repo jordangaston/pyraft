@@ -7,42 +7,83 @@ class MessageBoard:
         self.raft_state = raft_state
 
     def get_peers(self):
-        return self.network_interface().get_hostnames()
+        return NetworkInterface.get_hostnames()
 
     def get_peer_count(self):
-
-        return len(self.network_interface().get_hostnames())
+        return len(self.get_peers())
 
     def send_request_vote_response(self, receiver, ok):
         self.__send('request_vote_response', receiver, ok)
 
-    def send_append_entries_response(self, receiver, ok):
-        self.__send('append_entries_response', receiver, ok)
-
-    def send_heartbeat(self, receiver=None):
-        self.__broadcast('append_entries')
-
     def request_votes(self):
         params = {
             'senders_last_log_entry': {
-                'term': self.raft_state.get_last_log_term(),
-                'index': self.raft_state.get_last_log_index()
+                'term': self.raft_state.last_term(),
+                'index': self.raft_state.last_index()
             }
         }
         self.__broadcast('request_vote', params=params)
 
-    def append_entries(self, receiver):
-        pass
+    def send_append_entries_response(self, receiver, ok, last_repl_index=0):
+        params = {
+            'ok': ok,
+            'last_repl_index': last_repl_index
+        }
+        self.__send('append_entries_response', receiver, params=params)
 
-    def __send(self, operation, receiver, ok):
-        self.network_interface().send(
+    def send_heartbeat(self, receiver):
+        term, index = self.__previous_term_index(self.raft_state.next_index(receiver))
+
+        params = {
+            'exp_last_log_entry': {
+                'term': term,
+                'index': index
+            },
+            'entries': []
+        }
+
+        self.__send('append_entries', receiver, params=params)
+
+    def append_entries(self, receiver):
+        next_index = self.raft_state.next_index(receiver)
+        entries = self.raft_state.slice_entries(next_index)
+        term, index = self.__previous_term_index(next_index)
+
+        params = {
+            'exp_last_log_entry': {
+                'term': term,
+                'index': index
+            },
+            'entries': entries
+        }
+
+        self.__send('append_entries', receiver, params=params)
+
+    def __previous_term_index(self, next_index):
+        previous_entry = self.raft_state.get_entry(next_index - 1)
+
+        term = 0
+        index = 0
+
+        if previous_entry:
+            term = previous_entry.get_term()
+            index = previous_entry.index()
+
+        return term, index
+
+    def __send(self, operation, receiver, params=None):
+        if params is None:
+            params = {}
+
+        NetworkInterface.send(
             msg={
                 'operation': operation,
                 'senders_term': self.raft_state.get_current_term(),
                 'sender': self.raft_state.get_address(),
-                'ok': ok
+                **params
             },
-            dst_hostname=receiver
+            src=self.raft_state.get_address(),
+            dst=receiver
         )
 
     def __broadcast(self, operation, params=None, params_by_hostname=None):
@@ -52,7 +93,7 @@ class MessageBoard:
         if params_by_hostname is None:
             params_by_hostname = {}
 
-        for hostname in self.network_interface().get_hostnames():
+        for hostname in NetworkInterface.get_hostnames():
             if hostname == self.raft_state.get_address():
                 continue
 
@@ -61,7 +102,7 @@ class MessageBoard:
             else:
                 params_for_hostname = {}
 
-            self.network_interface().send(
+            NetworkInterface.send(
                 msg={
                     'operation': operation,
                     'senders_term': self.raft_state.get_current_term(),
@@ -69,8 +110,6 @@ class MessageBoard:
                     **params,
                     **params_for_hostname
                 },
-                dst_hostname=hostname
+                src=self.raft_state.get_address(),
+                dst=hostname
             )
-
-    def network_interface(self):
-        return NetworkInterface.get_instance(self.raft_state.get_address())

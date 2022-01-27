@@ -7,7 +7,7 @@ from ds_from_scratch.raft.log import LogEntry
 
 def test_request_rejected_when_candidate_term_stale(mocker):
     state = RaftState(address='raft_node_1', role=Role.FOLLOWER, current_term=5)
-    msg_board = MessageBoard(raft_state=state, network_interface=None)
+    msg_board = MessageBoard(raft_state=state)
 
     task = RequestVoteTask(
         state=state,
@@ -26,7 +26,7 @@ def test_request_rejected_when_candidate_term_stale(mocker):
 def test_request_rejected_with_stale_log_term(mocker):
     state = RaftState(address='raft_node_1', role=Role.FOLLOWER, current_term=2,
                       log=[LogEntry(term=2, index=2, body=None)])
-    msg_board = MessageBoard(raft_state=state, network_interface=None)
+    msg_board = MessageBoard(raft_state=state)
 
     task = RequestVoteTask(
         state=state,
@@ -45,7 +45,7 @@ def test_request_rejected_with_stale_log_term(mocker):
 def test_request_rejected_with_stale_log_index(mocker):
     state = RaftState(address='raft_node_1', role=Role.FOLLOWER, current_term=2,
                       log=[LogEntry(term=2, index=3, body=None)])
-    msg_board = MessageBoard(raft_state=state, network_interface=None)
+    msg_board = MessageBoard(raft_state=state)
 
     task = RequestVoteTask(
         state=state,
@@ -63,7 +63,7 @@ def test_request_rejected_with_stale_log_index(mocker):
 
 def test_leader_becomes_follower_when_term_stale(mocker):
     state = RaftState(address='raft_node_1', role=Role.LEADER, current_term=5)
-    msg_board = MessageBoard(raft_state=state, network_interface=None)
+    msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 
     task = RequestVoteTask(
@@ -93,7 +93,7 @@ def test_leader_becomes_follower_when_term_stale(mocker):
 
 def test_follower(mocker):
     state = RaftState(address='raft_node_1', role=Role.FOLLOWER, current_term=5)
-    msg_board = MessageBoard(raft_state=state, network_interface=None)
+    msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 
     task = RequestVoteTask(

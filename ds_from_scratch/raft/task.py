@@ -18,6 +18,7 @@ class StartServerTask:
         role = self.state.get_role()
         if role is Role.LEADER:
             self.logger.info('is leader')
+            self.state.become_leader(run_assertions=False)
             self.executor.submit(
                 ReplicateEntriesTask(state=self.state, executor=self.executor, msg_board=self.msg_board))
         elif role is Role.FOLLOWER:

@@ -6,7 +6,7 @@ from ds_from_scratch.raft.message_board import MessageBoard
 
 def test_becomes_follower_when_stale(mocker):
     state = RaftState(address='state_node_1', role=Role.CANDIDATE, current_term=5)
-    msg_board = MessageBoard(raft_state=state, network_interface=None)
+    msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 
     task = RequestVoteResponseTask(
@@ -35,7 +35,7 @@ def test_becomes_follower_when_stale(mocker):
 
 def test_becomes_leader_when_has_quorum(mocker):
     state = RaftState(address='state_node_1', role=Role.CANDIDATE, current_term=10, heartbeat_interval=5)
-    msg_board = MessageBoard(raft_state=state, network_interface=None)
+    msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 
     task = RequestVoteResponseTask(
@@ -63,7 +63,7 @@ def test_becomes_leader_when_has_quorum(mocker):
 
 def test_remains_candidate_without_quorum(mocker):
     state = RaftState(address='state_node_1', role=Role.CANDIDATE, current_term=10, heartbeat_interval=5)
-    msg_board = MessageBoard(raft_state=state, network_interface=None)
+    msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 
     task = RequestVoteResponseTask(
@@ -88,7 +88,7 @@ def test_remains_candidate_without_quorum(mocker):
 
 def test_remains_candidate_without_vote(mocker):
     state = RaftState(address='state_node_1', role=Role.CANDIDATE, current_term=10, heartbeat_interval=5)
-    msg_board = MessageBoard(raft_state=state, network_interface=None)
+    msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 
     task = RequestVoteResponseTask(

@@ -13,7 +13,7 @@ class MessageBoard:
         return len(self.get_peers())
 
     def send_request_vote_response(self, receiver, ok):
-        self.__send('request_vote_response', receiver, ok)
+        self.__send('request_vote_response', receiver, params={'ok': ok})
 
     def request_votes(self):
         params = {
@@ -32,7 +32,7 @@ class MessageBoard:
         self.__send('append_entries_response', receiver, params=params)
 
     def send_heartbeat(self, receiver):
-        term, index = self.__previous_term_index(self.raft_state.next_index(receiver))
+        term, index = self.__previous_term_index(self.raft_state.peers_next_index(receiver))
 
         params = {
             'exp_last_log_entry': {
@@ -45,7 +45,7 @@ class MessageBoard:
         self.__send('append_entries', receiver, params=params)
 
     def append_entries(self, receiver):
-        next_index = self.raft_state.next_index(receiver)
+        next_index = self.raft_state.peers_next_index(receiver)
         entries = self.raft_state.slice_entries(next_index)
         term, index = self.__previous_term_index(next_index)
 
@@ -75,15 +75,15 @@ class MessageBoard:
         if params is None:
             params = {}
 
-        NetworkInterface.send(
-            msg={
+        NetworkInterface.send_message(
+            self.raft_state.get_address(),
+            receiver,
+            {
                 'operation': operation,
                 'senders_term': self.raft_state.get_current_term(),
                 'sender': self.raft_state.get_address(),
                 **params
-            },
-            src=self.raft_state.get_address(),
-            dst=receiver
+            }
         )
 
     def __broadcast(self, operation, params=None, params_by_hostname=None):
@@ -102,14 +102,14 @@ class MessageBoard:
             else:
                 params_for_hostname = {}
 
-            NetworkInterface.send(
-                msg={
+            NetworkInterface.send_message(
+                self.raft_state.get_address(),
+                hostname,
+                {
                     'operation': operation,
                     'senders_term': self.raft_state.get_current_term(),
                     'sender': self.raft_state.get_address(),
                     **params,
                     **params_for_hostname
-                },
-                src=self.raft_state.get_address(),
-                dst=hostname
+                }
             )

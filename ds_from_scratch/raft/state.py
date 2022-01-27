@@ -31,6 +31,8 @@ class RaftState:
 
     def set_peers_last_repl_index(self, peer, index):
         assert self.get_role() == Role.LEADER
+        if peer in self.last_index_by_hostname and self.last_index_by_hostname[peer] > index:
+            return
         self.last_index_by_hostname[peer] = index
 
     def peers_last_repl_index(self, peer):
@@ -144,12 +146,13 @@ class RaftState:
 
         self.role = Role.FOLLOWER
 
-    def become_leader(self):
+    def become_leader(self, run_assertions=True):
         """
         from Candidate
         - has received quorum
         """
-        assert self.role == Role.CANDIDATE
+        if run_assertions:
+            assert self.role == Role.CANDIDATE
 
         self.__clear_candidate_state()
         self.default_next_index = self.next_index()

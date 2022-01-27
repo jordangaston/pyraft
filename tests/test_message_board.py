@@ -1,4 +1,4 @@
 
 
-def test_append_entries(mocker):
+def test_request_entries(mocker):
     pass

@@ -54,7 +54,7 @@ def test_send_entries(mocker):
     mocker.patch.object(state, 'peers_next_index')
     state.peers_next_index.return_value = 2
 
-    mocker.patch.object(state, 'peers_last_index')
+    mocker.patch.object(state, 'peers_last_repl_index')
     state.peers_last_repl_index.return_value = 1
 
     mocker.patch.object(state, 'heartbeat_interval')

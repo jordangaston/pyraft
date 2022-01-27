@@ -73,9 +73,8 @@ def test_append_entries():
                       role=Role.FOLLOWER,
                       log=[LogEntry(term=2, index=1, body=None)])
 
-    last_term, last_index = state.append_entries(LogEntry(term=3, index=1, body=None),
-                                                 LogEntry(term=3, index=2, body=None))
-    assert last_term == 3
+    last_index = state.append_entries(LogEntry(term=3, index=1, body=None), LogEntry(term=3, index=2, body=None))
+
     assert last_index == 2
     assert len(state.get_entries()) == 2
 

@@ -91,8 +91,8 @@ class NetworkInterface:
         return Network.get_instance().hostnames()
 
     @classmethod
-    def send(cls, src, dst, msg):
-        interface = cls.get_instance(hostname=src)
+    def send_message(cls, src, dst, msg):
+        interface = cls.get_instance(src)
         interface.send(msg=msg, dst_hostname=dst)
 
     def __init__(self, env, raft):

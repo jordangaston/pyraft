@@ -1,29 +1,10 @@
 from ds_from_scratch.raft.util import RingBufferRandom
 from ds_from_scratch.sim.testing import SimulationBuilder
 from ds_from_scratch.raft.server import Role
+from tests.simulation_assertions import assert_simulation_state
 
 
-def assert_simulation_state(simulation, expectations=None, leader=None, current_term=None):
-    if leader and current_term:
-        for name, actual_state in simulation.get_raft_state_snapshots().items():
-            role = Role.FOLLOWER
-            if name is leader:
-                role = Role.LEADER
-            assert actual_state['role'] == role
-            assert actual_state['current_term'] == current_term
-    elif expectations:
-        for name, expected_state in expectations.items():
-            actual_state = simulation.get_raft_state_snapshot(name)
-            if 'roles' in expected_state:
-                assert actual_state['role'] in expected_state['roles']
-            if 'role' in expected_state:
-                assert actual_state['role'] == expected_state['role']
-            if 'current_term' in expected_state:
-                assert actual_state['current_term'] == expected_state['current_term']
-
-
-def test_initial_leader_election():
-    simulation_builder = SimulationBuilder()
+def test_initial_leader_election(simulation_builder):
     simulation_builder.with_raft_node(hostname='raft_node_1', role=Role.FOLLOWER, prng=RingBufferRandom([10]))
     simulation_builder.with_raft_node(hostname='raft_node_2', role=Role.FOLLOWER, prng=RingBufferRandom([15]))
     simulation_builder.with_raft_node(hostname='raft_node_3', role=Role.FOLLOWER, prng=RingBufferRandom([20]))
@@ -34,8 +15,7 @@ def test_initial_leader_election():
     assert_simulation_state(simulation, leader='raft_node_1', current_term=1)
 
 
-def test_leader_recovers_after_election():
-    simulation_builder = SimulationBuilder()
+def test_leader_recovers_after_election(simulation_builder):
     simulation_builder.with_raft_node(hostname='raft_node_1', role=Role.LEADER, prng=RingBufferRandom([200]))
     simulation_builder.with_raft_node(hostname='raft_node_2', role=Role.FOLLOWER, prng=RingBufferRandom([200]))
     simulation_builder.with_raft_node(hostname='raft_node_3', role=Role.FOLLOWER, prng=RingBufferRandom([200]))
@@ -66,8 +46,7 @@ def test_leader_recovers_after_election():
     assert_simulation_state(simulation, leader='raft_node_5', current_term=1)
 
 
-def test_leader_recovers_before_election():
-    simulation_builder = SimulationBuilder()
+def test_leader_recovers_before_election(simulation_builder):
     simulation_builder.with_raft_node(hostname='raft_node_1', role=Role.LEADER, prng=RingBufferRandom([10]))
     simulation_builder.with_raft_node(hostname='raft_node_2', role=Role.FOLLOWER, prng=RingBufferRandom([20]))
     simulation_builder.with_raft_node(hostname='raft_node_3', role=Role.FOLLOWER, prng=RingBufferRandom([30]))
@@ -87,7 +66,7 @@ def test_leader_recovers_before_election():
     assert_simulation_state(simulation, leader='raft_node_1', current_term=0)
 
 
-def test_leader_recovers_during_election():
+def test_leader_recovers_during_election(simulation_builder):
     """
     a leader that recovers during a subsequent election should
     - update it's term
@@ -101,7 +80,6 @@ def test_leader_recovers_during_election():
     20: node 5 wins the election
     """
 
-    simulation_builder = SimulationBuilder()
     simulation_builder.with_raft_node(hostname='raft_node_1', role=Role.LEADER, prng=RingBufferRandom([10]))
     simulation_builder.with_raft_node(hostname='raft_node_2', role=Role.FOLLOWER, prng=RingBufferRandom([20]))
     simulation_builder.with_raft_node(hostname='raft_node_3', role=Role.FOLLOWER, prng=RingBufferRandom([30]))
@@ -120,8 +98,7 @@ def test_leader_recovers_during_election():
     assert_simulation_state(simulation, leader='raft_node_5', current_term=1)
 
 
-def test_follower_recovers_after_election_timeout():
-    simulation_builder = SimulationBuilder()
+def test_follower_recovers_after_election_timeout(simulation_builder):
     simulation_builder.with_raft_node(hostname='raft_node_1', role=Role.LEADER, prng=RingBufferRandom([20]))
     simulation_builder.with_raft_node(hostname='raft_node_2', role=Role.FOLLOWER, prng=RingBufferRandom([10]))
     simulation_builder.with_raft_node(hostname='raft_node_3', role=Role.FOLLOWER, prng=RingBufferRandom([30]))
@@ -135,8 +112,7 @@ def test_follower_recovers_after_election_timeout():
     assert_simulation_state(simulation, leader='raft_node_2', current_term=1)
 
 
-def test_follower_recovers_before_election_timeout():
-    simulation_builder = SimulationBuilder()
+def test_follower_recovers_before_election_timeout(simulation_builder):
     simulation_builder.with_raft_node(hostname='raft_node_1', role=Role.LEADER, prng=RingBufferRandom([20]))
     simulation_builder.with_raft_node(hostname='raft_node_2', role=Role.FOLLOWER, prng=RingBufferRandom([10]))
     simulation_builder.with_raft_node(hostname='raft_node_3', role=Role.FOLLOWER, prng=RingBufferRandom([30]))
@@ -150,8 +126,7 @@ def test_follower_recovers_before_election_timeout():
     assert_simulation_state(simulation, leader='raft_node_1', current_term=0)
 
 
-def test_split_vote_should_occur():
-    simulation_builder = SimulationBuilder()
+def test_split_vote_should_occur(simulation_builder):
     simulation_builder.with_raft_node(hostname='raft_node_1', role=Role.FOLLOWER, prng=RingBufferRandom([10]))
     simulation_builder.with_raft_node(hostname='raft_node_2', role=Role.FOLLOWER, prng=RingBufferRandom([10]))
     simulation_builder.with_raft_node(hostname='raft_node_3', role=Role.FOLLOWER, prng=RingBufferRandom([10]))
@@ -165,8 +140,7 @@ def test_split_vote_should_occur():
     })
 
 
-def test_no_election_after_majority_fails():
-    simulation_builder = SimulationBuilder()
+def test_no_election_after_majority_fails(simulation_builder):
     simulation_builder.with_raft_node(hostname='raft_node_1', role=Role.LEADER, prng=RingBufferRandom([10]))
     simulation_builder.with_raft_node(hostname='raft_node_2', role=Role.FOLLOWER, prng=RingBufferRandom([20]))
     simulation_builder.with_raft_node(hostname='raft_node_3', role=Role.FOLLOWER, prng=RingBufferRandom([15]))

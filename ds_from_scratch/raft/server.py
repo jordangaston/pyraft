@@ -19,20 +19,23 @@ class Raft:
             executor=self.executor,
         ))
 
-    def get_hostname(self):
-        """
+    def subscribe(self, subscriber):
+        self.state.subscribe(subscriber)
 
-        :return:
-        """
+    def get_hostname(self):
         return self.state.get_address()
 
-    def execute_command(self, msg):
-        """
-
-        :param msg:
-        :return:
-        """
-        pass
+    def execute_command(self, cmd_uid, cmd):
+        return self.executor.submit(
+            AcceptCommandTask(
+                state=self.state,
+                msg_board=self.msg_board,
+                executor=self.executor,
+                cmd=cmd,
+                cmd_uid=cmd_uid
+            ),
+            task_uid=cmd_uid
+        )
 
     def process_message(self, msg):
         """

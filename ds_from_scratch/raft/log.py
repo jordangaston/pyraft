@@ -15,10 +15,14 @@ class Log:
 
 class LogEntry:
 
-    def __init__(self, body, term, index):
+    def __init__(self, body, term, index, uid):
+        self.uid = uid
         self.index = index
         self.term = term
         self.body = body
+
+    def get_uid(self):
+        return self.uid
 
     def get_index(self):
         return self.index

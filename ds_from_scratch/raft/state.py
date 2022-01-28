@@ -26,10 +26,10 @@ class RaftState:
         self.last_index_by_hostname = {}
         self.last_commit_index = 0
         self.last_applied_index = 0
-        self.subscribers = []
+        self.subscriber = None
 
     def subscribe(self, subscriber):
-        self.subscribers.append(subscriber)
+        self.subscriber = subscriber
 
     def get_last_applied_index(self):
         return self.last_applied_index
@@ -98,14 +98,15 @@ class RaftState:
         return last_entry.get_index()
 
     def commit_entries(self, next_commit_index):
+        results = {}
         curr_commit_index = self.get_last_commit_index()
         for index in range(max(1, curr_commit_index), next_commit_index + 1):
-
             self.last_commit_index = index  # mark the entry as committed
             entry = self.get_entry(index)
-            for subscriber in self.subscribers:
-                subscriber.apply(entry.get_body())
+            results[entry.get_uid()] = self.subscriber.apply(entry.get_body())
             self.last_applied_index = index  # mark the entry as applied
+
+        return results
 
     def get_snapshot(self):
         return {

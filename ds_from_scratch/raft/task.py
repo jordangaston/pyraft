@@ -5,9 +5,10 @@ from ds_from_scratch.raft.log import LogEntry
 
 class CommitEntriesTask:
 
-    def __init__(self, state, msg_board):
+    def __init__(self, state, msg_board, executor):
         self.msg_board = msg_board
         self.state = state
+        self.executor = executor
 
     def run(self):
         if not self.__is_leader():
@@ -24,7 +25,9 @@ class CommitEntriesTask:
             next_commit_index = min(last_repl_index, next_commit_index)
 
         if self.__should_commit_entries(repl_count):
-            self.state.commit_entries(next_commit_index)
+            results = self.state.commit_entries(next_commit_index)
+            for uid, result in results.items():
+                self.executor.complete_pending(task_uid=uid, task_result=result)
 
     def __is_leader(self):
         return self.state.get_role() == Role.LEADER
@@ -231,7 +234,9 @@ class AppendEntriesResponseTask:
 
         if self.request_successful():
             self.entries_appended()
-            CommitEntriesTask(state=self.state, msg_board=self.msg_board).run()
+            CommitEntriesTask(state=self.state,
+                              msg_board=self.msg_board,
+                              executor=self.executor).run()
         else:
             self.entries_rejected()
 
@@ -429,15 +434,16 @@ class RequestVoteResponseTask:
         return self.msg['senders_term']
 
 
-class AcceptEntryTask:
+class AcceptCommandTask:
     """
     Appends an entry for the cmd to the leaders log
     and attempts to replicate it (and any other un-replicated entries) immediately
     """
 
-    def __init__(self, state, cmd, executor, msg_board):
-        self.msg_board = msg_board
+    def __init__(self, state, cmd_uid, cmd, executor, msg_board):
+        self.cmd_uid = cmd_uid
         self.cmd = cmd
+        self.msg_board = msg_board
         self.state = state
         self.executor = executor
 
@@ -448,7 +454,8 @@ class AcceptEntryTask:
         entry = LogEntry(
             index=self.state.next_index(),
             term=self.state.get_current_term(),
-            body=self.cmd
+            body=self.cmd,
+            uid=self.cmd_uid
         )
 
         self.state.append_entries(entry)

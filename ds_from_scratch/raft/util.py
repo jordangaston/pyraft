@@ -22,9 +22,18 @@ class Executor:
     def __init__(self, executor):
         self.executor = executor
         self.future_by_task = {}
+        self.pending_tasks = {}
 
-    def submit(self, task):
-        self.executor.submit(fn=task.run)
+    def complete_pending(self, task_uid, task_result):
+        if task_uid in self.pending_tasks:
+            future = self.pending_tasks[task_uid]
+            future.set_result(task_result)
+
+    def submit(self, task, task_uid=None):
+        future = self.executor.submit(fn=task.run)
+        if task_uid:
+            self.pending_tasks[task_uid] = future
+        return future
 
     def schedule(self, task, delay):
         future = self.executor.schedule(fn=task.run, delay=delay)

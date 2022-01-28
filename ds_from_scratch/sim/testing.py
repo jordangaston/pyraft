@@ -7,10 +7,11 @@ from random import Random
 
 
 class Simulation:
-    def __init__(self, raft_by_address, network, env):
+    def __init__(self, raft_by_address, network, env, state_machine_by_address):
         self.env = env
         self.network = network
         self.raft_by_address = raft_by_address
+        self.state_machine_by_address = state_machine_by_address
 
     def disconnect_raft_nodes(self, *hostnames):
         for hostname in hostnames:
@@ -44,9 +45,13 @@ class SimulationBuilder:
 
         self.heartbeat_interval = 5
         self.raft_by_address = {}
+        self.state_machine_by_address = {}
 
     def build(self):
-        return Simulation(env=self.env, network=self.network, raft_by_address=self.raft_by_address)
+        return Simulation(env=self.env,
+                          network=self.network,
+                          raft_by_address=self.raft_by_address,
+                          state_machine_by_address=self.state_machine_by_address)
 
     def with_heartbeat_interval(self, interval):
         self.heartbeat_interval = interval
@@ -68,7 +73,26 @@ class SimulationBuilder:
                     state=state,
                     msg_board=MessageBoard(raft_state=state))
 
+        state_machine = MockStateMachine()
+
+        raft.subscribe(state_machine)
+
+        self.state_machine_by_address[hostname] = state_machine
+
         network_interface = NetworkInterface.create_instance(raft)
         self.env.process(network_interface.listen())
 
         self.network.add_network_interface(network_interface)
+
+
+class MockStateMachine:
+
+    def __init__(self):
+        self.payloads = []
+
+    def get_payloads(self):
+        return self.payloads
+
+    def apply(self, payload):
+        self.payloads.append(payload)
+        return payload

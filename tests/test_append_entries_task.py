@@ -25,7 +25,7 @@ def test_entries_rejected_with_stale_leader_term(mocker):
 
 def test_request_rejected_with_stale_log_term(mocker):
     state = RaftState(address='state_node_1', role=Role.FOLLOWER, current_term=2,
-                      log=[LogEntry(term=2, index=1, body=None)])
+                      log=[LogEntry(term=2, index=1, body=None, uid=None)])
     msg_board = MessageBoard(raft_state=state)
 
     task = AppendEntriesTask(
@@ -44,7 +44,7 @@ def test_request_rejected_with_stale_log_term(mocker):
 
 def test_request_rejected_with_stale_log_index(mocker):
     state = RaftState(address='state_node_1', role=Role.FOLLOWER, current_term=2,
-                      log=[LogEntry(term=2, index=1, body=None)])
+                      log=[LogEntry(term=2, index=1, body=None, uid=None)])
     msg_board = MessageBoard(raft_state=state)
 
     task = AppendEntriesTask(
@@ -66,7 +66,7 @@ def test_is_candidate(mocker):
         'sender': 'raft_node_2',
         'senders_term': 2,
         'exp_last_log_entry': {'term': 0, 'index': 0},
-        'entries': [LogEntry(term=2, index=1, body='entry_1')]
+        'entries': [LogEntry(term=2, index=1, body='entry_1', uid=None)]
     }
 
     state = RaftState(
@@ -107,7 +107,7 @@ def test_is_leader(mocker):
         'sender': 'raft_node_2',
         'senders_term': 10,
         'exp_last_log_entry': {'term': 10, 'index': 1},
-        'entries': [LogEntry(term=10, index=2, body='entry_2')]
+        'entries': [LogEntry(term=10, index=2, body='entry_2', uid=None)]
     }
 
     state = RaftState(
@@ -115,7 +115,7 @@ def test_is_leader(mocker):
         role=Role.LEADER,
         current_term=5,
         prng=RingBufferRandom([12]),
-        log=[LogEntry(term=10, index=1, body='entry_1')]
+        log=[LogEntry(term=10, index=1, body='entry_1', uid=None)]
     )
 
     msg_board = MessageBoard(raft_state=state)
@@ -148,7 +148,7 @@ def test_is_follower(mocker):
         'sender': 'raft_node_2',
         'senders_term': 10,
         'exp_last_log_entry': {'term': 10, 'index': 2},
-        'entries': [LogEntry(term=10, index=3, body='entry_1')]
+        'entries': [LogEntry(term=10, index=3, body='entry_1', uid=None)]
     }
 
     state = RaftState(
@@ -156,7 +156,7 @@ def test_is_follower(mocker):
         role=Role.FOLLOWER,
         current_term=5,
         prng=RingBufferRandom([12]),
-        log=[LogEntry(term=10, index=1, body='entry_1'), LogEntry(term=10, index=2, body='entry_1')]
+        log=[LogEntry(term=10, index=1, body='entry_1', uid=None), LogEntry(term=10, index=2, body='entry_1', uid=None)]
     )
 
     msg_board = MessageBoard(raft_state=state)
@@ -196,7 +196,7 @@ def test_when_heartbeat(mocker):
         role=Role.FOLLOWER,
         current_term=5,
         prng=RingBufferRandom([12]),
-        log=[LogEntry(term=10, index=1, body='entry_1'), LogEntry(term=10, index=2, body='entry_1')]
+        log=[LogEntry(term=10, index=1, body='entry_1', uid=None), LogEntry(term=10, index=2, body='entry_1', uid=None)]
     )
 
     msg_board = MessageBoard(raft_state=state)

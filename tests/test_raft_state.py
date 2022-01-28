@@ -71,9 +71,10 @@ class TestBecomeFollower:
 def test_append_entries():
     state = RaftState(address='address_1',
                       role=Role.FOLLOWER,
-                      log=[LogEntry(term=2, index=1, body=None)])
+                      log=[LogEntry(term=2, index=1, body=None, uid=None)])
 
-    last_index = state.append_entries(LogEntry(term=3, index=1, body=None), LogEntry(term=3, index=2, body=None))
+    last_index = state.append_entries(LogEntry(term=3, index=1, body=None, uid=None),
+                                      LogEntry(term=3, index=2, body=None, uid=None))
 
     assert last_index == 2
     assert len(state.get_entries()) == 2

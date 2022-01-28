@@ -38,12 +38,6 @@ class Raft:
         )
 
     def process_message(self, msg):
-        """
-
-        :param msg:
-        :return:
-        """
-
         operation = msg.body['operation']
         self.logger.info("received message {op} from {sender}".format(op=operation, sender=msg.src_hostname))
         if operation == 'append_entries':

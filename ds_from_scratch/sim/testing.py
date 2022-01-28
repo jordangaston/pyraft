@@ -7,11 +7,19 @@ from random import Random
 
 
 class Simulation:
-    def __init__(self, raft_by_address, network, env, state_machine_by_address):
+    def __init__(self, raft_by_address, network, env, state_machine_by_address, node_by_address):
+        self.node_by_address = node_by_address
         self.env = env
         self.network = network
         self.raft_by_address = raft_by_address
         self.state_machine_by_address = state_machine_by_address
+
+    def get_state_machine(self, hostname):
+        return self.state_machine_by_address[hostname]
+
+    def execute_cmd(self, hostname, cmd_uid, cmd):
+        raft = self.node_by_address[hostname]
+        return raft.execute_command(cmd_uid=cmd_uid, cmd=cmd)
 
     def disconnect_raft_nodes(self, *hostnames):
         for hostname in hostnames:
@@ -46,12 +54,14 @@ class SimulationBuilder:
         self.heartbeat_interval = 5
         self.raft_by_address = {}
         self.state_machine_by_address = {}
+        self.node_by_address = {}
 
     def build(self):
         return Simulation(env=self.env,
                           network=self.network,
                           raft_by_address=self.raft_by_address,
-                          state_machine_by_address=self.state_machine_by_address)
+                          state_machine_by_address=self.state_machine_by_address,
+                          node_by_address=self.node_by_address)
 
     def with_heartbeat_interval(self, interval):
         self.heartbeat_interval = interval
@@ -72,6 +82,8 @@ class SimulationBuilder:
         raft = Raft(executor=executor,
                     state=state,
                     msg_board=MessageBoard(raft_state=state))
+
+        self.node_by_address[hostname] = raft
 
         state_machine = MockStateMachine()
 

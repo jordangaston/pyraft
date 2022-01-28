@@ -141,6 +141,9 @@ class AppendEntriesTask:
 
         last_replicated_index = self.append_entries()
 
+        if self.should_commit():
+            self.commit_entries()
+
         self.finished_appending_entries(last_replicated_index)
 
     def log_is_inconsistent(self):
@@ -205,6 +208,12 @@ class AppendEntriesTask:
 
     def leaders_term(self):
         return self.msg['senders_term']
+
+    def should_commit(self):
+        return self.state.get_last_commit_index() < self.msg['last_commit_index']
+
+    def commit_entries(self):
+        self.state.commit_entries(self.msg['last_commit_index'])
 
 
 class AppendEntriesResponseTask:

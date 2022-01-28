@@ -1,3 +1,4 @@
+import concurrent.futures
 from ds_from_scratch.sim.core import Environment
 from enum import Enum
 
@@ -30,7 +31,8 @@ class Executor:
             future.set_result(task_result)
 
     def submit(self, task, task_uid=None):
-        future = self.executor.submit(fn=task.run)
+        self.executor.submit(fn=task.run)
+        future = concurrent.futures.Future()
         if task_uid:
             self.pending_tasks[task_uid] = future
         return future

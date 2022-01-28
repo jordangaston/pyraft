@@ -35,6 +35,7 @@ class MessageBoard:
         term, index = self.__previous_term_index(self.raft_state.peers_next_index(receiver))
 
         params = {
+            'last_commit_index': self.raft_state.get_last_commit_index(),
             'exp_last_log_entry': {
                 'term': term,
                 'index': index
@@ -50,6 +51,7 @@ class MessageBoard:
         term, index = self.__previous_term_index(next_index)
 
         params = {
+            'last_commit_index': self.raft_state.get_last_commit_index(),
             'exp_last_log_entry': {
                 'term': term,
                 'index': index
@@ -67,7 +69,7 @@ class MessageBoard:
 
         if previous_entry:
             term = previous_entry.get_term()
-            index = previous_entry.index()
+            index = previous_entry.get_index()
 
         return term, index
 

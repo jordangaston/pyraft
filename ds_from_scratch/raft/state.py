@@ -112,6 +112,8 @@ class RaftState:
         return {
             'role': self.role,
             'current_term': self.current_term,
+            'last_commit_index': self.last_commit_index,
+            'last_applied_index': self.last_applied_index
         }
 
     def get_votes(self):

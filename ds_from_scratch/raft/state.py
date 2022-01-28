@@ -8,12 +8,10 @@ class RaftState:
                  address,
                  role,
                  log=[],
-                 state_machine=None,
                  current_term=0,
                  heartbeat_interval=5,
                  election_timeout_range=(10, 20),
                  prng=Random()):
-        self.state_machine = state_machine
         self.log = log
         self.heartbeat_interval = heartbeat_interval
         self.address = address
@@ -28,9 +26,21 @@ class RaftState:
         self.last_index_by_hostname = {}
         self.last_commit_index = 0
         self.last_applied_index = 0
+        self.subscribers = []
+
+    def subscribe(self, subscriber):
+        self.subscribers.append(subscriber)
+
+    def get_last_applied_index(self):
+        return self.last_applied_index
+
+    def get_last_commit_index(self):
+        return self.last_commit_index
+
+    def peers_last_repl_indices(self):
+        return self.last_index_by_hostname.values()
 
     def set_peers_last_repl_index(self, peer, index):
-        assert self.get_role() == Role.LEADER
         if peer in self.last_index_by_hostname and self.last_index_by_hostname[peer] > index:
             return
         self.last_index_by_hostname[peer] = index
@@ -87,8 +97,15 @@ class RaftState:
         last_entry = entries[len(entries) - 1]
         return last_entry.get_index()
 
-    def commit_entry(self, index):
-        pass
+    def commit_entries(self, next_commit_index):
+        curr_commit_index = self.get_last_commit_index()
+        for index in range(max(1, curr_commit_index), next_commit_index + 1):
+
+            self.last_commit_index = index  # mark the entry as committed
+            entry = self.get_entry(index)
+            for subscriber in self.subscribers:
+                subscriber.apply(entry.get_body())
+            self.last_applied_index = index  # mark the entry as applied
 
     def get_snapshot(self):
         return {

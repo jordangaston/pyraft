@@ -25,3 +25,6 @@ class LogEntry:
 
     def get_term(self):
         return self.term
+
+    def get_body(self):
+        return self.body

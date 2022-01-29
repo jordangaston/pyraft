@@ -81,7 +81,7 @@ class RaftState:
         return self.log[(index - 1):]
 
     def get_entry(self, index):
-        if index > len(self.log) or len(self.log) == 0:
+        if len(self.log) == 0 or index not in range(1, len(self.log) + 1):
             return None
         return self.log[index - 1]
 
@@ -98,13 +98,18 @@ class RaftState:
         return last_entry.get_index()
 
     def commit_entries(self, next_commit_index):
+        if next_commit_index > len(self.log):
+            return
+
         results = {}
-        curr_commit_index = self.get_last_commit_index()
-        for index in range(max(1, curr_commit_index), next_commit_index + 1):
-            self.last_commit_index = index  # mark the entry as committed
-            entry = self.get_entry(index)
+
+        commit_start = max(self.get_last_commit_index() - 1, 0)
+        commit_end = min(next_commit_index, max(1, len(self.log)))
+
+        for entry in self.log[commit_start:commit_end]:
+            self.last_commit_index = entry.get_index()
             results[entry.get_uid()] = self.subscriber.apply(entry.get_body())
-            self.last_applied_index = index  # mark the entry as applied
+            self.last_applied_index = entry.get_index()  # mark the entry as applied
 
         return results
 

@@ -9,6 +9,7 @@ class CommitEntriesTask:
         self.msg_board = msg_board
         self.state = state
         self.executor = executor
+        self.logger = Logger(address=state.get_address())
 
     def run(self):
         if not self.__is_leader():
@@ -25,6 +26,7 @@ class CommitEntriesTask:
             next_commit_index = min(last_repl_index, next_commit_index)
 
         if self.__should_commit_entries(repl_count):
+            self.logger.info("committing entries up to {i}".format(i=next_commit_index))
             results = self.state.commit_entries(next_commit_index)
             for uid, result in results.items():
                 self.executor.complete_pending(task_uid=uid, task_result=result)
@@ -142,7 +144,7 @@ class AppendEntriesTask:
         last_replicated_index = self.append_entries()
 
         if self.should_commit():
-            self.commit_entries()
+            self.commit_entries(last_replicated_index)
 
         self.finished_appending_entries(last_replicated_index)
 
@@ -212,8 +214,10 @@ class AppendEntriesTask:
     def should_commit(self):
         return self.state.get_last_commit_index() < self.msg['last_commit_index']
 
-    def commit_entries(self):
-        self.state.commit_entries(self.msg['last_commit_index'])
+    def commit_entries(self, last_repl_index):
+        # if the leader begins to send new entries in batches, a follower can never assume that it's log is up to date.
+        # therefore it should only commit those entries that it knows to be replicated.
+        self.state.commit_entries(min(self.msg['last_commit_index'], last_repl_index))
 
 
 class AppendEntriesResponseTask:

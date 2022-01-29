@@ -151,3 +151,8 @@ def test_no_election_after_majority_fails(simulation_builder):
     assert_simulation_state(simulation, expectations={
         'raft_node_3': {'role': Role.CANDIDATE},
     })
+
+
+def test_stale_node_cannot_become_leader(simulation_builder):
+    # if a nodes log is not up to date then it should not become leader
+    pass

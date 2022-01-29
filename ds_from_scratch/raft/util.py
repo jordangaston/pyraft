@@ -27,7 +27,7 @@ class Executor:
 
     def complete_pending(self, task_uid, task_result):
         if task_uid in self.pending_tasks:
-            future = self.pending_tasks[task_uid]
+            future = self.pending_tasks.pop(task_uid)
             future.set_result(task_result)
 
     def submit(self, task, task_uid=None):

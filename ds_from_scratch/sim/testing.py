@@ -29,6 +29,12 @@ class Simulation:
         for hostname in hostnames:
             self.network.connect_to_all(hostname)
 
+    def get_state_machine_snapshots(self):
+        snapshots = {}
+        for address, state_machine in self.state_machine_by_address.items():
+            snapshots[address] = state_machine.get_payloads()
+        return snapshots
+
     def get_raft_state_snapshots(self):
         snapshots = {}
         for address, raft in self.raft_by_address.items():
@@ -75,7 +81,8 @@ class SimulationBuilder:
                           current_term=current_term,
                           role=role,
                           heartbeat_interval=self.heartbeat_interval,
-                          prng=prng)
+                          prng=prng,
+                          log=[])
 
         self.raft_by_address[hostname] = state
 

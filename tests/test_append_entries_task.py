@@ -65,6 +65,7 @@ def test_is_candidate(mocker):
     append_entries_msg = {
         'sender': 'raft_node_2',
         'senders_term': 2,
+        'last_commit_index': 0,
         'exp_last_log_entry': {'term': 0, 'index': 0},
         'entries': [LogEntry(term=2, index=1, body='entry_1', uid=None)]
     }
@@ -106,6 +107,7 @@ def test_is_leader(mocker):
     append_entries_msg = {
         'sender': 'raft_node_2',
         'senders_term': 10,
+        'last_commit_index': 0,
         'exp_last_log_entry': {'term': 10, 'index': 1},
         'entries': [LogEntry(term=10, index=2, body='entry_2', uid=None)]
     }
@@ -147,6 +149,7 @@ def test_is_follower(mocker):
     append_entries_msg = {
         'sender': 'raft_node_2',
         'senders_term': 10,
+        'last_commit_index': 0,
         'exp_last_log_entry': {'term': 10, 'index': 2},
         'entries': [LogEntry(term=10, index=3, body='entry_1', uid=None)]
     }
@@ -187,6 +190,7 @@ def test_when_heartbeat(mocker):
     append_entries_msg = {
         'sender': 'raft_node_2',
         'senders_term': 10,
+        'last_commit_index': 0,
         'exp_last_log_entry': {'term': 10, 'index': 2},
         'entries': []
     }

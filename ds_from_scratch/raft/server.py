@@ -26,6 +26,7 @@ class Raft:
         return self.state.get_address()
 
     def execute_command(self, cmd_uid, cmd):
+        self.logger.info("executing cmd {id}".format(id=cmd_uid))
         return self.executor.submit(
             AcceptCommandTask(
                 state=self.state,

@@ -8,10 +8,12 @@ class RaftState:
                  address,
                  role,
                  log=[],
+                 stateStore={},
                  current_term=0,
                  heartbeat_interval=5,
                  election_timeout_range=(10, 20),
                  prng=Random()):
+
         self.log = log
         self.heartbeat_interval = heartbeat_interval
         self.address = address

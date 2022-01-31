@@ -28,6 +28,9 @@ class RaftState:
         self.last_applied_index = 0
         self.subscriber = None
 
+    def install_snapshot(self, snapshot):
+        pass
+
     def subscribe(self, subscriber):
         self.subscriber = subscriber
 

@@ -69,3 +69,7 @@ class Raft:
                 executor=self.executor,
                 msg=msg.body
             ))
+        elif operation == 'install_snapshot':
+            pass
+        elif operation == 'install_snapshot_response':
+            pass

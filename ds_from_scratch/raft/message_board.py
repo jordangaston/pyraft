@@ -12,6 +12,9 @@ class MessageBoard:
     def get_peer_count(self):
         return len(self.get_peers())
 
+    def send_install_snapshot_response(self, receiver, ok):
+        pass
+
     def send_request_vote_response(self, receiver, ok):
         self.__send('request_vote_response', receiver, params={'ok': ok})
 

@@ -1,3 +1,6 @@
+import json
+
+
 class PickleDbLog:
 
     def __init__(self, db):
@@ -110,3 +113,40 @@ class LogEntry:
 
     def get_body(self):
         return self.body
+
+
+class SnapshotBuilder:
+
+    def __init__(self, state_store):
+        self.state_store = state_store
+
+    def append_chunk(self, data, offset, last_index, last_term):
+        if self.is_snapshot_stale(last_term=last_term, last_index=last_index):
+            self.state_store['incoming_snapshot_term'] = last_term
+            self.state_store['incoming_snapshot_index'] = last_index
+            self.state_store['incoming_snapshot_offset'] = -1
+
+        if offset <= self.state_store.get('incoming_snapshot_offset', -1):
+            return
+
+        snapshot_byte_string = self.state_store.get('incoming_snapshot', "")
+        snapshot_byte_string += data.decode("utf-8")
+        self.state_store['incoming_snapshot'] = snapshot_byte_string
+        self.state_store['incoming_snapshot_offset'] = offset
+
+    def build(self):
+        snapshot = json.loads(self.state_store['incoming_snapshot'])
+        self.state_store["incoming_snapshot"] = ""
+        self.state_store["incoming_snapshot_offset"] = -1
+        return snapshot
+
+    def is_snapshot_stale(self, last_term, last_index):
+        curr_term = self.state_store.get('incoming_snapshot_term', 0)
+        curr_index = self.state_store.get('incoming_snapshot_index', 0)
+
+        if last_term > curr_term:
+            return True
+        elif last_term == curr_term:
+            return last_index > curr_index
+        else:
+            return False

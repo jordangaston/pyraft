@@ -1,6 +1,6 @@
 from ds_from_scratch.raft.state import RaftState
-from ds_from_scratch.raft.server import Raft
-from ds_from_scratch.raft.util import Executor
+from ds_from_scratch.raft.server import Raft, Role
+from ds_from_scratch.raft.util import Executor, RingBufferRandom
 from ds_from_scratch.raft.message_board import MessageBoard
 from ds_from_scratch.sim.core import *
 from random import Random
@@ -13,6 +13,23 @@ class Simulation:
         self.network = network
         self.raft_by_address = raft_by_address
         self.state_machine_by_address = state_machine_by_address
+
+    def bounce_raft_node(self, hostname):
+        node = self.node_by_address[hostname]
+        current_state = node.state
+        node.state = RaftState(
+            address=hostname,
+            role=Role.FOLLOWER,
+            heartbeat_interval=current_state.heartbeat_interval,
+            election_timeout_range=current_state.election_timeout_range,
+            prng=current_state.prng,
+            state_store=current_state.state_store,
+            log=current_state.log
+        )
+        self.raft_by_address[hostname] = node.state
+
+    def get_raft_state(self, hostname):
+        return self.raft_by_address[hostname]
 
     def get_state_machine(self, hostname):
         return self.state_machine_by_address[hostname]

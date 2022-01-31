@@ -22,6 +22,7 @@ class PickleDbStateStore(MutableMapping):
     def __setitem__(self, key, value):
 
         self.db.dadd('state', (key, value))
+        self.db.dump()
 
     def __getitem__(self, key):
         if self.db.dexists('state', key):

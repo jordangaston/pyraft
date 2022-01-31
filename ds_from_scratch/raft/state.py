@@ -118,7 +118,8 @@ class RaftState:
             'role': self.role,
             'current_term': self.get_current_term(),
             'last_commit_index': self.last_commit_index,
-            'last_applied_index': self.last_applied_index
+            'last_applied_index': self.last_applied_index,
+            'voted': self.__get_voted()
         }
 
     def get_votes(self):

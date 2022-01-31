@@ -11,6 +11,9 @@ def assert_simulation_state(simulation, expectations=None, leader=None, current_
             assert actual_state['current_term'] == current_term
     elif expectations:
         for name, expected_state in expectations.items():
+            if name not in expectations:
+                continue
+
             actual_state = simulation.get_raft_state_snapshot(name)
             if 'roles' in expected_state:
                 assert actual_state['role'] in expected_state['roles']
@@ -24,3 +27,5 @@ def assert_simulation_state(simulation, expectations=None, leader=None, current_
                 assert actual_state['last_applied_index'] == expected_state['last_applied_index']
             if 'subscriber' in expected_state:
                 assert simulation.get_state_machine(name).get_payloads() == expected_state['subscriber']
+            if 'voted' in expected_state:
+                assert actual_state['voted'] == expected_state['voted']

@@ -9,6 +9,9 @@ class RingBufferRandom:
         self.seq = seq
         self.i = 0
 
+    def copy(self):
+        return RingBufferRandom(self.seq)
+
     def randint(self, a, b):
         result = self.seq[self.i]
         if self.i < len(self.seq) - 1:

@@ -5,14 +5,14 @@ class PickleDbLog:
         self.len = 0
         self.__init_log()
 
-    def __setitem__(self, index, value):
+    def __setitem__(self, index, log_entry):
         if type(index) is not int:
             raise ValueError('type of index must be int')
 
         if index < 0 or index >= self.len:
             raise IndexError('log index out of range')
 
-        self.db.dadd('log', (str(index), value))
+        self.db.dadd('log', (str(index), log_entry.__dict__))
         self.db.dump()
 
     def __getitem__(self, index):
@@ -29,9 +29,15 @@ class PickleDbLog:
     def __len__(self):
         return self.len
 
+    def copy(self):
+        values = []
+        for value in self.db.dgetall('log').values():
+            values.append(self.__to_entry(value))
+        return values
+
     def append(self, *entries):
         for entry in entries:
-            self.db.dadd('log', (self.len, entry))
+            self.db.dadd('log', (str(self.len), entry.__dict__))
             self.len += 1
         self.db.dump()
 
@@ -51,7 +57,7 @@ class PickleDbLog:
         values = []
 
         for i in range(start, min(self.len, stop)):
-            values.append(self.db.dget('log', str(i)))
+            values.append(self.__to_entry(self.db.dget('log', str(i))))
 
         return values
 
@@ -59,13 +65,18 @@ class PickleDbLog:
         if index < 0 or index >= self.len:
             raise IndexError('log index out of range')
 
-        return self.db.dget('log', str(index))
+        return self.__to_entry(self.db.dget('log', str(index)))
 
     def __init_log(self):
         if not self.db.exists('log'):
             self.db.dcreate('log')
         else:
             self.len = len(self.db.dkeys('log'))
+
+    def __to_entry(self, attrs):
+        entry = LogEntry()
+        entry.__dict__ = attrs
+        return entry
 
     class Iterator:
         def __init__(self, log):
@@ -82,7 +93,7 @@ class PickleDbLog:
 
 class LogEntry:
 
-    def __init__(self, body, term, index, uid):
+    def __init__(self, body=None, term=None, index=None, uid=None):
         self.uid = uid
         self.index = index
         self.term = term

@@ -5,7 +5,7 @@ from ds_from_scratch.raft.util import Role, Executor
 
 
 def test_becomes_follower_when_stale():
-    state = RaftState(address='address_1', role=Role.FOLLOWER, current_term=5)
+    state = RaftState(address='address_1', role=Role.FOLLOWER, state_store={'current_term': 5})
     msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 
@@ -22,7 +22,7 @@ def test_becomes_follower_when_stale():
 
 
 def test_entries_accepted(mocker):
-    state = RaftState(address='address_1', role=Role.LEADER, current_term=10)
+    state = RaftState(address='address_1', role=Role.LEADER, state_store={'current_term': 10})
     msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 
@@ -43,7 +43,7 @@ def test_entries_accepted(mocker):
 
 
 def test_entries_rejected():
-    state = RaftState(address='address_1', role=Role.LEADER, current_term=10)
+    state = RaftState(address='address_1', role=Role.LEADER, state_store={'current_term': 10})
     state.set_peers_next_index('address_2', 25)
 
     msg_board = MessageBoard(raft_state=state)

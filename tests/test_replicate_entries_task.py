@@ -5,7 +5,7 @@ from ds_from_scratch.raft.message_board import MessageBoard
 
 
 def test_send_heartbeat_when_peer_up_to_date(mocker):
-    state = RaftState(address='raft_node_1', role=Role.LEADER, current_term=5)
+    state = RaftState(address='raft_node_1', role=Role.LEADER, state_store={'current_term': 5})
     msg_board = MessageBoard(raft_state=state)
 
     task = ReplicateEntriesTask(
@@ -35,7 +35,7 @@ def test_send_heartbeat_when_peer_up_to_date(mocker):
 
 
 def test_send_entries(mocker):
-    state = RaftState(address='raft_node_1', role=Role.LEADER, current_term=5)
+    state = RaftState(address='raft_node_1', role=Role.LEADER, state_store={'current_term': 5})
     msg_board = MessageBoard(raft_state=state)
 
     task = ReplicateEntriesTask(

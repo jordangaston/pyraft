@@ -48,7 +48,8 @@ def test_should_commit(mocker):
 def test_should_not_commit_without_quorum(mocker):
     state = RaftState(
         'raft_1',
-        role=Role.LEADER, current_term=1,
+        role=Role.LEADER,
+        state_store={'current_term': 1},
         log=[LogEntry(term=1, index=1, body=1, uid=None), LogEntry(term=1, index=2, body=2, uid=None),
              LogEntry(term=1, index=3, body=3, uid=None)]
     )
@@ -80,7 +81,8 @@ def test_should_not_commit_without_quorum(mocker):
 def test_should_do_nothing_unless_leader(mocker):
     state = RaftState(
         'raft_1',
-        role=Role.FOLLOWER, current_term=1,
+        role=Role.FOLLOWER,
+        state_store={'current_term': 1},
         log=[LogEntry(term=1, index=1, body=1, uid=None), LogEntry(term=1, index=2, body=2, uid=None),
              LogEntry(term=1, index=3, body=3, uid=None)]
     )

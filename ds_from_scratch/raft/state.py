@@ -8,12 +8,13 @@ class RaftState:
                  address,
                  role,
                  log=[],
-                 stateStore={},
+                 state_store={},
                  current_term=0,
                  heartbeat_interval=5,
                  election_timeout_range=(10, 20),
                  prng=Random()):
 
+        self.stateStore = state_store
         self.log = log
         self.heartbeat_interval = heartbeat_interval
         self.address = address
@@ -118,7 +119,7 @@ class RaftState:
     def get_snapshot(self):
         return {
             'role': self.role,
-            'current_term': self.current_term,
+            'current_term': self.get_current_term(),
             'last_commit_index': self.last_commit_index,
             'last_applied_index': self.last_applied_index
         }
@@ -141,13 +142,13 @@ class RaftState:
         - election timeout is hit
         """
         self.__clear_candidate_state()  # in case it is the candidate
-        self.__change_term(new_term=self.current_term + 1)
+        self.__change_term(new_term=self.get_current_term() + 1)
         self.role = Role.CANDIDATE
         self.vote()
         self.got_vote(self.get_address())  # vote for myself
 
     def heard_from_peer(self, peers_term):
-        if self.current_term < peers_term:
+        if self.get_current_term() < peers_term:
             self.__change_term(new_term=peers_term)
 
     def next_election_timeout(self):
@@ -163,9 +164,9 @@ class RaftState:
         - discovered valid leader
         """
         assert self.role != Role.FOLLOWER
-        assert peers_term >= self.current_term  # a valid leaders term must be at least a big
+        assert peers_term >= self.get_current_term()  # a valid leaders term must be at least a big
 
-        if self.current_term < peers_term:
+        if self.get_current_term() < peers_term:
             self.__change_term(new_term=peers_term)
 
         self.__clear_leader_state()
@@ -195,7 +196,7 @@ class RaftState:
         return self.role
 
     def get_current_term(self):
-        return self.current_term
+        return self.stateStore.get('current_term', 0)
 
     def has_quorum(self, peer_count):
         quorum = math.ceil(peer_count / 2)
@@ -208,7 +209,7 @@ class RaftState:
         return self.log[num_entries - 1]
 
     def __change_term(self, new_term):
-        self.current_term = new_term
+        self.__set_current_term(new_term)
         self.voted = False
 
     def __clear_candidate_state(self):
@@ -218,3 +219,6 @@ class RaftState:
         self.next_index_by_hostname.clear()
         self.last_index_by_hostname.clear()
         self.default_next_index = None
+
+    def __set_current_term(self, term):
+        self.stateStore['current_term'] = term

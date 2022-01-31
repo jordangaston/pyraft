@@ -6,7 +6,7 @@ from ds_from_scratch.raft.message_board import MessageBoard
 
 
 def test_entries_rejected_with_stale_leader_term(mocker):
-    state = RaftState(address='state_node_1', role=Role.FOLLOWER, current_term=5)
+    state = RaftState(address='state_node_1', role=Role.FOLLOWER, state_store={'current_term': 5})
     msg_board = MessageBoard(raft_state=state)
 
     task = AppendEntriesTask(
@@ -24,7 +24,9 @@ def test_entries_rejected_with_stale_leader_term(mocker):
 
 
 def test_request_rejected_with_stale_log_term(mocker):
-    state = RaftState(address='state_node_1', role=Role.FOLLOWER, current_term=2,
+    state = RaftState(address='state_node_1',
+                      role=Role.FOLLOWER,
+                      state_store={'current_term': 2},
                       log=[LogEntry(term=2, index=1, body=None, uid=None)])
     msg_board = MessageBoard(raft_state=state)
 
@@ -43,7 +45,9 @@ def test_request_rejected_with_stale_log_term(mocker):
 
 
 def test_request_rejected_with_stale_log_index(mocker):
-    state = RaftState(address='state_node_1', role=Role.FOLLOWER, current_term=2,
+    state = RaftState(address='state_node_1',
+                      role=Role.FOLLOWER,
+                      state_store={'current_term': 2},
                       log=[LogEntry(term=2, index=1, body=None, uid=None)])
     msg_board = MessageBoard(raft_state=state)
 
@@ -73,7 +77,7 @@ def test_is_candidate(mocker):
     state = RaftState(
         address='raft_node_1',
         role=Role.CANDIDATE,
-        current_term=1,
+        state_store={'current_term': 1},
         prng=RingBufferRandom([12]),
         log=[]
     )
@@ -115,7 +119,7 @@ def test_is_leader(mocker):
     state = RaftState(
         address='state_node_1',
         role=Role.LEADER,
-        current_term=5,
+        state_store={'current_term': 5},
         prng=RingBufferRandom([12]),
         log=[LogEntry(term=10, index=1, body='entry_1', uid=None)]
     )
@@ -157,7 +161,7 @@ def test_is_follower(mocker):
     state = RaftState(
         address='state_node_1',
         role=Role.FOLLOWER,
-        current_term=5,
+        state_store={'current_term': 5},
         prng=RingBufferRandom([12]),
         log=[LogEntry(term=10, index=1, body='entry_1', uid=None), LogEntry(term=10, index=2, body='entry_1', uid=None)]
     )
@@ -198,7 +202,7 @@ def test_when_heartbeat(mocker):
     state = RaftState(
         address='state_node_1',
         role=Role.FOLLOWER,
-        current_term=5,
+        state_store={'current_term': 5},
         prng=RingBufferRandom([12]),
         log=[LogEntry(term=10, index=1, body='entry_1', uid=None), LogEntry(term=10, index=2, body='entry_1', uid=None)]
     )

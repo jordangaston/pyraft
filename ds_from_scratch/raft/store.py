@@ -31,5 +31,3 @@ class PickleDbStateStore(MutableMapping):
     def __init_store(self):
         if not self.db.exists('state'):
             self.db.dcreate('state')
-            self['current_term'] = 0
-            self['voted'] = False

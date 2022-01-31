@@ -9,7 +9,6 @@ class RaftState:
                  role,
                  log=[],
                  state_store={},
-                 current_term=0,
                  heartbeat_interval=5,
                  election_timeout_range=(10, 20),
                  prng=Random()):
@@ -19,7 +18,6 @@ class RaftState:
         self.heartbeat_interval = heartbeat_interval
         self.address = address
         self.role = role
-        self.current_term = current_term
         self.election_timeout_range = election_timeout_range
         self.prng = prng
         self.votes = set()
@@ -223,7 +221,7 @@ class RaftState:
         self.state_store['current_term'] = term
 
     def __get_voted(self):
-        self.state_store.get('voted', False)
+        return self.state_store.get('voted', False)
 
     def __set_voted(self, has_voted):
         self.state_store['voted'] = has_voted

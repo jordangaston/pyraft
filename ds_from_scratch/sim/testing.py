@@ -72,7 +72,13 @@ class SimulationBuilder:
     def with_heartbeat_interval(self, interval):
         self.heartbeat_interval = interval
 
-    def with_raft_node(self, hostname, role, current_term=0, prng=Random(), state_store={}, log={}):
+    def with_raft_node(self, hostname, role, current_term=0, prng=Random(), state_store=None, log=None):
+        if log is None:
+            log = []
+
+        if state_store is None:
+            state_store = {}
+
         simulation_executor = SimulationExecutor()
         self.env.process(simulation_executor.run())
         executor = Executor(executor=simulation_executor)
@@ -81,7 +87,6 @@ class SimulationBuilder:
         state_store['voted'] = False
 
         state = RaftState(address=hostname,
-                          current_term=current_term,
                           role=role,
                           heartbeat_interval=self.heartbeat_interval,
                           prng=prng,

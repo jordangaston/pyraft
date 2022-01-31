@@ -9,7 +9,8 @@ from ds_from_scratch.sim.testing import MockStateMachine
 def test_should_commit(mocker):
     state = RaftState(
         'raft_1',
-        role=Role.LEADER, current_term=1,
+        role=Role.LEADER,
+        state_store={'current_term': 1},
         log=[LogEntry(term=1, index=1, body=1, uid='entry_1'),
              LogEntry(term=1, index=2, body=2, uid='entry_2'),
              LogEntry(term=1, index=3, body=3, uid='entry_3')]

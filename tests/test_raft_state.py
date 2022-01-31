@@ -11,7 +11,7 @@ class TestBecomeFollower:
         - has_voted does not change because term has not changed
         - votes changes because the candidate is no longer campaigning
         """
-        state = RaftState(address='address_1', role=Role.CANDIDATE, current_term=5)
+        state = RaftState(address='address_1', role=Role.CANDIDATE, state_store={'current_term': 5})
         state.vote()
         state.got_vote('address_1')
         state.become_follower(peers_term=5)
@@ -27,7 +27,7 @@ class TestBecomeFollower:
          - has_voted changes because the term changed
          - votes changes because the candidate is no longer campaigning
         """
-        state = RaftState(address='address_1', role=Role.CANDIDATE, current_term=5)
+        state = RaftState(address='address_1', role=Role.CANDIDATE, state_store={'current_term': 5})
         state.vote()
         state.got_vote('address_1')
         state.become_follower(peers_term=6)
@@ -42,7 +42,7 @@ class TestBecomeFollower:
         - candidate -> follower
         - leader_state is reset since the user is no longer the leader
         """
-        state = RaftState(address='address_1', role=Role.LEADER, current_term=5)
+        state = RaftState(address='address_1', role=Role.LEADER, state_store={'current_term': 5})
         state.vote()
         state.got_vote('address_1')
         state.become_follower(peers_term=5)
@@ -57,7 +57,7 @@ class TestBecomeFollower:
         - candidate -> follower
         - leader_state is reset since the user is no longer the leader
         """
-        state = RaftState(address='address_1', role=Role.LEADER, current_term=5)
+        state = RaftState(address='address_1', role=Role.LEADER, state_store={'current_term': 5})
         state.vote()
         state.got_vote('address_1')
         state.become_follower(peers_term=6)

@@ -14,7 +14,7 @@ class RaftState:
                  election_timeout_range=(10, 20),
                  prng=Random()):
 
-        self.stateStore = state_store
+        self.state_store = state_store
         self.log = log
         self.heartbeat_interval = heartbeat_interval
         self.address = address
@@ -23,7 +23,6 @@ class RaftState:
         self.election_timeout_range = election_timeout_range
         self.prng = prng
         self.votes = set()
-        self.voted = False
         self.default_next_index = None
         self.next_index_by_hostname = {}
         self.last_index_by_hostname = {}
@@ -131,9 +130,9 @@ class RaftState:
         self.votes.add(sender)
 
     def vote(self):
-        if self.voted:
+        if self.__get_voted():
             return False
-        self.voted = True
+        self.__set_voted(True)
         return True
 
     def start_election(self):
@@ -196,7 +195,7 @@ class RaftState:
         return self.role
 
     def get_current_term(self):
-        return self.stateStore.get('current_term', 0)
+        return self.state_store.get('current_term', 0)
 
     def has_quorum(self, peer_count):
         quorum = math.ceil(peer_count / 2)
@@ -210,7 +209,7 @@ class RaftState:
 
     def __change_term(self, new_term):
         self.__set_current_term(new_term)
-        self.voted = False
+        self.__set_voted(False)
 
     def __clear_candidate_state(self):
         self.votes.clear()
@@ -221,4 +220,10 @@ class RaftState:
         self.default_next_index = None
 
     def __set_current_term(self, term):
-        self.stateStore['current_term'] = term
+        self.state_store['current_term'] = term
+
+    def __get_voted(self):
+        self.state_store.get('voted', False)
+
+    def __set_voted(self, has_voted):
+        self.state_store['voted'] = has_voted

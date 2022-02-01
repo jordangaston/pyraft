@@ -28,6 +28,9 @@ class RaftState:
         self.last_applied_index = 0
         self.subscriber = None
 
+    def ack_snapshot_chunk(self, peer):
+        pass
+
     def install_snapshot(self, snapshot):
         pass
 

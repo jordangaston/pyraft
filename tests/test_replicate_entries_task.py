@@ -51,6 +51,9 @@ def test_send_entries(mocker):
     mocker.patch.object(state, 'next_index')
     state.next_index.return_value = 3
 
+    mocker.patch.object(state, 'should_send_snapshot')
+    state.should_send_snapshot.return_value = False
+
     mocker.patch.object(state, 'peers_next_index')
     state.peers_next_index.return_value = 2
 
@@ -65,3 +68,39 @@ def test_send_entries(mocker):
     task.run()
 
     msg_board.append_entries.assert_called_once_with('raft_node_2')
+
+
+def test_install_snapshot(mocker):
+    state = RaftState(address='raft_node_1', role=Role.LEADER, state_store={'current_term': 5})
+    msg_board = MessageBoard(raft_state=state)
+
+    task = ReplicateEntriesTask(
+        state=state,
+        msg_board=msg_board,
+        executor=None,
+        recursive=False
+    )
+
+    mocker.patch.object(msg_board, 'get_peers')
+    msg_board.get_peers.return_value = ['raft_node_2']
+
+    mocker.patch.object(state, 'next_index')
+    state.next_index.return_value = 3
+
+    mocker.patch.object(state, 'should_send_snapshot')
+    state.should_send_snapshot.return_value = True
+
+    mocker.patch.object(state, 'peers_next_index')
+    state.peers_next_index.return_value = 2
+
+    mocker.patch.object(state, 'peers_last_repl_index')
+    state.peers_last_repl_index.return_value = 1
+
+    mocker.patch.object(state, 'heartbeat_interval')
+    state.heartbeat_interval.return_value = 5
+
+    mocker.patch.object(msg_board, 'install_snapshot')
+
+    task.run()
+
+    msg_board.install_snapshot.assert_called_once_with('raft_node_2')

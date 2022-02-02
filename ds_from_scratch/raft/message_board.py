@@ -12,6 +12,9 @@ class MessageBoard:
     def get_peer_count(self):
         return len(self.get_peers())
 
+    def install_snapshot(self, peer):
+        pass
+
     def send_install_snapshot_response(self, receiver, ok):
         pass
 

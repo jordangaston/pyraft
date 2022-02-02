@@ -28,6 +28,9 @@ class RaftState:
         self.last_applied_index = 0
         self.subscriber = None
 
+    def should_send_snapshot(self):
+        pass
+
     def ack_snapshot_chunk(self, peer):
         pass
 
@@ -66,7 +69,7 @@ class RaftState:
         return self.default_next_index
 
     def next_index(self):
-        return len(self.log) + 1
+        return self.__last_log_index() + 1
 
     def last_term(self):
         entry = self.__last_log_entry()
@@ -75,42 +78,41 @@ class RaftState:
         return entry.get_term()
 
     def last_index(self):
-        entry = self.__last_log_entry()
-        if entry is None:
-            return 0
-        return entry.get_index()
+        return self.__last_log_index()
 
     def slice_entries(self, index):
-        if index > len(self.log):
+        if not self.__index_in_log(index):
             return []
 
-        return self.log[(index - 1):]
+        return self.log[self.__pos_of_index(index):]
 
     def get_entry(self, index):
-        if len(self.log) == 0 or index not in range(1, len(self.log) + 1):
-            return None
-        return self.log[index - 1]
+        if self.__index_in_log(index):
+            return self.log[self.__pos_of_index(index)]
+        return None
 
     def get_entries(self):
         return self.log.copy()
 
     def append_entries(self, *entries):
         for entry in entries:
-            if entry.get_index() > len(self.log):
-                self.log.append(entry)
+            if self.__index_in_log(entry.get_index()):
+                self.log[self.__pos_of_index(entry.get_index())] = entry
             else:
-                self.log[entry.get_index() - 1] = entry
+                self.log.append(entry)
+
         last_entry = entries[len(entries) - 1]
         return last_entry.get_index()
 
     def commit_entries(self, next_commit_index):
-        if next_commit_index > len(self.log):
+        if not self.__index_in_log(next_commit_index):
             return
 
         results = {}
 
-        commit_start = max(self.get_last_commit_index() - 1, 0)
-        commit_end = min(next_commit_index, max(1, len(self.log)))
+        last_commit_pos = self.__pos_of_index(self.get_last_commit_index())
+        commit_start = last_commit_pos if last_commit_pos is not None else 0
+        commit_end = self.__pos_of_index(next_commit_index) + 1
 
         for entry in self.log[commit_start:commit_end]:
             self.last_commit_index = entry.get_index()
@@ -232,3 +234,30 @@ class RaftState:
 
     def __set_voted(self, has_voted):
         self.state_store['voted'] = has_voted
+
+    def __index_in_log(self, index):
+        pos = self.__pos_of_index(index)
+        return pos is not None
+
+    def __pos_of_index(self, index):
+        first = self.__first_log_index()
+        last = self.__last_log_index()
+
+        if first == 0 or last == 0:
+            return None
+
+        if index < first or index > last:
+            return None
+
+        return 0 + (index - first)
+
+    def __last_log_index(self):
+        entry = self.__last_log_entry()
+        if entry is None:
+            return 0
+        return entry.get_index()
+
+    def __first_log_index(self):
+        if len(self.log) == 0:
+            return 0
+        return self.log[0].get_index()

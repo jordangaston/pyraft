@@ -96,7 +96,7 @@ class ReplicateEntriesTask:
             if self.peer_up_to_date(peer):
                 self.send_heartbeat(peer)
             else:
-                self.send_entries(peer)
+                self.send_entries_or_snapshot(peer)
 
         if self.recursive:
             self.executor.schedule(
@@ -109,8 +109,11 @@ class ReplicateEntriesTask:
     def send_heartbeat(self, peer):
         self.msg_board.send_heartbeat(peer)
 
-    def send_entries(self, peer):
-        self.msg_board.append_entries(peer)
+    def send_entries_or_snapshot(self, peer):
+        if self.state.should_send_snapshot():
+            self.msg_board.install_snapshot(peer)
+        else:
+            self.msg_board.append_entries(peer)
 
 
 class AppendEntriesTask:

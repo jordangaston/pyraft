@@ -24,7 +24,7 @@ class Simulation:
             election_timeout_range=current_state.election_timeout_range,
             prng=current_state.prng,
             state_store=current_state.state_store,
-            log=current_state.log
+            log=current_state.log.store()
         )
         self.raft_by_address[hostname] = node.state
 

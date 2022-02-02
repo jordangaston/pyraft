@@ -14,7 +14,7 @@ class RaftState:
                  prng=Random()):
 
         self.state_store = state_store
-        self.log = log
+        self.log = Log(log)
         self.heartbeat_interval = heartbeat_interval
         self.address = address
         self.role = role
@@ -29,7 +29,7 @@ class RaftState:
         self.subscriber = None
 
     def should_send_snapshot(self):
-        pass
+        self
 
     def ack_snapshot_chunk(self, peer):
         pass
@@ -44,7 +44,7 @@ class RaftState:
         return self.last_applied_index
 
     def get_last_commit_index(self):
-        return self.last_commit_index
+        return self.log.last_commit_index()
 
     def peers_last_repl_indices(self):
         return self.last_index_by_hostname.values()
@@ -69,53 +69,31 @@ class RaftState:
         return self.default_next_index
 
     def next_index(self):
-        return self.__last_log_index() + 1
+        return self.log.next_index()
 
     def last_term(self):
-        entry = self.__last_log_entry()
-        if entry is None:
-            return 0
-        return entry.get_term()
+        return self.log.last_term()
 
     def last_index(self):
-        return self.__last_log_index()
+        return self.log.last_index()
 
     def slice_entries(self, index):
-        if not self.__index_in_log(index):
-            return []
-
-        return self.log[self.__pos_of_index(index):]
+        return self.log.slice_entries(index)
 
     def get_entry(self, index):
-        if self.__index_in_log(index):
-            return self.log[self.__pos_of_index(index)]
-        return None
+        return self.log.get_entry(index)
 
     def get_entries(self):
-        return self.log.copy()
+        return self.log.all_entries()
 
     def append_entries(self, *entries):
-        for entry in entries:
-            if self.__index_in_log(entry.get_index()):
-                self.log[self.__pos_of_index(entry.get_index())] = entry
-            else:
-                self.log.append(entry)
-
-        last_entry = entries[len(entries) - 1]
-        return last_entry.get_index()
+        return self.log.append_entries(*entries)
 
     def commit_entries(self, next_commit_index):
-        if not self.__index_in_log(next_commit_index):
-            return
 
         results = {}
 
-        last_commit_pos = self.__pos_of_index(self.get_last_commit_index())
-        commit_start = last_commit_pos if last_commit_pos is not None else 0
-        commit_end = self.__pos_of_index(next_commit_index) + 1
-
-        for entry in self.log[commit_start:commit_end]:
-            self.last_commit_index = entry.get_index()
+        for entry in self.log.commit_entries(next_commit_index):
             results[entry.get_uid()] = self.subscriber.apply(entry.get_body())
             self.last_applied_index = entry.get_index()  # mark the entry as applied
 
@@ -125,7 +103,7 @@ class RaftState:
         return {
             'role': self.role,
             'current_term': self.get_current_term(),
-            'last_commit_index': self.last_commit_index,
+            'last_commit_index': self.log.last_commit_index(),
             'last_applied_index': self.last_applied_index,
             'voted': self.__get_voted()
         }
@@ -189,7 +167,7 @@ class RaftState:
             assert self.role == Role.CANDIDATE
 
         self.__clear_candidate_state()
-        self.default_next_index = self.next_index()
+        self.default_next_index = self.log.next_index()
         self.role = Role.LEADER
 
     def get_heartbeat_interval(self):
@@ -207,12 +185,6 @@ class RaftState:
     def has_quorum(self, peer_count):
         quorum = math.ceil(peer_count / 2)
         return len(self.votes) >= quorum
-
-    def __last_log_entry(self):
-        num_entries = len(self.log)
-        if num_entries == 0:
-            return None
-        return self.log[num_entries - 1]
 
     def __change_term(self, new_term):
         self.__set_current_term(new_term)
@@ -235,6 +207,83 @@ class RaftState:
     def __set_voted(self, has_voted):
         self.state_store['voted'] = has_voted
 
+
+class Snapshot:
+    @classmethod
+    def create(cls, log, state):
+        pass
+
+
+class Log:
+
+    def __init__(self, log_store):
+        self.log_store = log_store
+        self.commit_index = 0
+
+    def append_entries(self, *entries):
+        for entry in entries:
+            if self.__index_in_log(entry.get_index()):
+                self.log_store[self.__pos_of_index(entry.get_index())] = entry
+            else:
+                self.log_store.append(entry)
+
+        last_entry = entries[len(entries) - 1]
+        return last_entry.get_index()
+
+    def commit_entries(self, next_commit_index):
+        if not self.__index_in_log(next_commit_index):
+            return []
+
+        committed = []
+
+        commit_start = self.__pos_of_index(self.commit_index) if self.__index_in_log(self.commit_index) else 0
+        commit_end = self.__pos_of_index(next_commit_index) + 1
+
+        for entry in self.log_store[commit_start:commit_end]:
+            self.commit_index = entry.get_index()
+            committed.append(entry)
+
+        return committed
+
+    def last_commit_index(self):
+        return self.commit_index
+
+    def get_entry(self, index):
+        if self.__index_in_log(index):
+            return self.log_store[self.__pos_of_index(index)]
+        return None
+
+    def store(self):
+        return self.log_store
+
+    def all_entries(self):
+        return self.log_store.copy()
+
+    def slice_entries(self, index):
+        if not self.__index_in_log(index):
+            return []
+
+        return self.log_store[self.__pos_of_index(index):]
+
+    def next_index(self):
+        return self.__last_log_index() + 1
+
+    def last_term(self):
+        if self.last_entry() is None:
+            return 0
+        return self.last_entry().get_term()
+
+    def last_index(self):
+        if self.last_entry() is None:
+            return 0
+        return self.last_entry().get_index()
+
+    def last_entry(self):
+        num_entries = len(self.log_store)
+        if num_entries == 0:
+            return None
+        return self.log_store[num_entries - 1]
+
     def __index_in_log(self, index):
         pos = self.__pos_of_index(index)
         return pos is not None
@@ -252,12 +301,12 @@ class RaftState:
         return 0 + (index - first)
 
     def __last_log_index(self):
-        entry = self.__last_log_entry()
+        entry = self.last_entry()
         if entry is None:
             return 0
         return entry.get_index()
 
     def __first_log_index(self):
-        if len(self.log) == 0:
+        if len(self.log_store) == 0:
             return 0
-        return self.log[0].get_index()
+        return self.log_store[0].get_index()

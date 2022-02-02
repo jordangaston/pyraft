@@ -124,7 +124,7 @@ class SnapshotBuilder:
         if self.is_snapshot_stale(last_term=last_term, last_index=last_index):
             self.state_store['incoming_snapshot_term'] = last_term
             self.state_store['incoming_snapshot_index'] = last_index
-            self.state_store['incoming_snapshot_offset'] = -1
+            self.state_store['incoming_snapshot_offset']
 
         if offset <= self.state_store.get('incoming_snapshot_offset', -1):
             return

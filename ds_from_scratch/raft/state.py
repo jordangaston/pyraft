@@ -21,15 +21,14 @@ class RaftState:
         self.election_timeout_range = election_timeout_range
         self.prng = prng
         self.votes = set()
+        self.followers = {}
         self.default_next_index = None
-        self.next_index_by_hostname = {}
-        self.last_index_by_hostname = {}
         self.last_commit_index = 0
         self.last_applied_index = 0
         self.subscriber = None
 
     def should_send_snapshot(self):
-        self
+        pass
 
     def ack_snapshot_chunk(self, peer):
         pass
@@ -47,26 +46,31 @@ class RaftState:
         return self.log.last_commit_index()
 
     def peers_last_repl_indices(self):
-        return self.last_index_by_hostname.values()
+        values = []
+        for follower in self.followers.values():
+            values.append(follower.last_index())
+        return values
 
     def set_peers_last_repl_index(self, peer, index):
-        if peer in self.last_index_by_hostname and self.last_index_by_hostname[peer] > index:
-            return
-        self.last_index_by_hostname[peer] = index
+        follower = self.followers.get(peer, Follower())
+        follower.set_last_index(index)
+        self.followers[peer] = follower
 
     def peers_last_repl_index(self, peer):
-        if peer in self.last_index_by_hostname:
-            return self.last_index_by_hostname[peer]
-        return 0
+        follower = self.followers.get(peer, Follower())
+        self.followers[peer] = follower
+        return follower.last_index()
 
     def set_peers_next_index(self, peer, index):
         assert self.get_role() == Role.LEADER
-        self.next_index_by_hostname[peer] = index
+        follower = self.followers.get(peer, Follower())
+        follower.set_next_index(index)
+        self.followers[peer] = follower
 
     def peers_next_index(self, peer):
-        if peer in self.next_index_by_hostname:
-            return self.next_index_by_hostname[peer]
-        return self.default_next_index
+        follower = self.followers.get(peer, Follower())
+        self.followers[peer] = follower
+        return follower.next_index()
 
     def next_index(self):
         return self.log.next_index()
@@ -194,8 +198,7 @@ class RaftState:
         self.votes.clear()
 
     def __clear_leader_state(self):
-        self.next_index_by_hostname.clear()
-        self.last_index_by_hostname.clear()
+        self.followers.clear()
         self.default_next_index = None
 
     def __set_current_term(self, term):
@@ -212,6 +215,30 @@ class Snapshot:
     @classmethod
     def create(cls, log, state):
         pass
+
+
+class Follower:
+    def __init__(self):
+        self.next = 0
+        self.last = 0
+
+    def behind_snapshot(self, snapshot):
+        pass
+
+    def set_last_index(self, index):
+        if self.last >= index:
+            return  # last_index is monotonically increasing
+
+        self.last = index
+
+    def set_next_index(self, index):
+        self.next = index
+
+    def next_index(self):
+        return self.next
+
+    def last_index(self):
+        return self.last
 
 
 class Log:

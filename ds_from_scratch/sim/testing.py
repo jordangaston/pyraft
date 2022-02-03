@@ -21,8 +21,8 @@ class Simulation:
             address=hostname,
             role=Role.FOLLOWER,
             heartbeat_interval=current_state.heartbeat_interval,
-            election_timeout_range=current_state.election_timeout_range,
-            prng=current_state.prng,
+            election_timeout_range=current_state.election_timer.timeout_range,
+            prng=current_state.election_timer.prng,
             state_store=current_state.state_store,
             log=current_state.log.store()
         )

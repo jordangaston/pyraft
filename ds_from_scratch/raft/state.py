@@ -18,12 +18,10 @@ class RaftState:
         self.heartbeat_interval = heartbeat_interval
         self.address = address
         self.role = role
-        self.election_timeout_range = election_timeout_range
-        self.prng = prng
+        self.election_timer = ElectionTimer(election_timeout_range, prng)
         self.votes = set()
         self.followers = {}
         self.default_next_index = None
-        self.last_commit_index = 0
         self.last_applied_index = 0
         self.subscriber = None
 
@@ -140,7 +138,7 @@ class RaftState:
             self.__change_term(new_term=peers_term)
 
     def next_election_timeout(self):
-        return self.prng.randint(self.election_timeout_range[0], self.election_timeout_range[1])
+        return self.election_timer.next_timeout()
 
     def become_follower(self, peers_term):
         """
@@ -215,6 +213,15 @@ class Snapshot:
     @classmethod
     def create(cls, log, state):
         pass
+
+
+class ElectionTimer:
+    def __init__(self, timeout_range, prng):
+        self.timeout_range = timeout_range
+        self.prng = prng
+
+    def next_timeout(self):
+        return self.prng.randint(self.timeout_range[0], self.timeout_range[1])
 
 
 class Follower:

@@ -13,10 +13,18 @@ class MessageBoard:
         return len(self.get_peers())
 
     def install_snapshot(self, peer):
-        pass
+        is_last_chunk, chunk = self.raft_state.next_snapshot_chunk(peer)
+        snapshot = {
+            'data': chunk,
+            'offset': self.raft_state.next_snapshot_chunk_offset(peer),
+            'last_term': self.raft_state.last_snapshot_term(),
+            'last_index': self.raft_state.last_snapshot_index(),
+            'done': is_last_chunk,
+        }
+        self.__send('install_snapshot', peer, params=snapshot)
 
     def send_install_snapshot_response(self, receiver, ok):
-        pass
+        self.__send('install_snapshot_response', receiver, params={'ok': ok})
 
     def send_request_vote_response(self, receiver, ok):
         self.__send('request_vote_response', receiver, params={'ok': ok})

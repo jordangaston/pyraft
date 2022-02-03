@@ -1,5 +1,5 @@
-from ds_from_scratch.raft.util import RingBufferRandom
-from ds_from_scratch.raft.server import Role
+from ds_from_scratch.raft.model.raft import Role
+from ds_from_scratch.sim.testing import RingBufferRandom
 from tests.simulation_assertions import assert_simulation_state
 
 

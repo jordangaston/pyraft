@@ -1,12 +1,18 @@
-from ds_from_scratch.raft.task import RequestVoteTask, ReplicateEntriesTask, ElectionTask
-from ds_from_scratch.raft.state import RaftState
-from ds_from_scratch.raft.util import Role, Executor
+from ds_from_scratch.raft.model.raft import Raft, Role
+from ds_from_scratch.raft.task.election import ElectionTask
+from ds_from_scratch.raft.task.replicate_entries import ReplicateEntriesTask
+from ds_from_scratch.raft.task.request_vote import RequestVoteTask
+from ds_from_scratch.raft.executor import Executor
 from ds_from_scratch.raft.message_board import MessageBoard
-from ds_from_scratch.raft.log import LogEntry
+from ds_from_scratch.raft.model.log import LogEntry, Log
 
 
 def test_request_rejected_when_candidate_term_stale(mocker):
-    state = RaftState(address='raft_node_1', role=Role.FOLLOWER, state_store={'current_term': 5})
+    state = Raft(address='raft_node_1',
+                 role=Role.FOLLOWER,
+                 state_store={'current_term': 5},
+                 log=Log([]))
+
     msg_board = MessageBoard(raft_state=state)
 
     task = RequestVoteTask(
@@ -24,10 +30,40 @@ def test_request_rejected_when_candidate_term_stale(mocker):
 
 
 def test_request_rejected_with_stale_log_term(mocker):
-    state = RaftState(address='raft_node_1',
-                      role=Role.FOLLOWER,
-                      state_store={'current_term': 2},
-                      log=[LogEntry(term=2, index=2, body=None, uid=None)])
+    state = Raft(address='raft_node_1',
+                 role=Role.FOLLOWER,
+                 state_store={'current_term': 2},
+                 log=Log([LogEntry(term=2, index=2, body=None, uid=None)]))
+
+    msg_board = MessageBoard(raft_state=state)
+
+    task = RequestVoteTask(
+        state=state,
+        msg_board=msg_board,
+        executor=None,
+        msg={'sender': 'raft_node_2', 'senders_term': 3, 'senders_last_log_entry': {'term': 1, 'index': 2}}
+    )
+
+    mocker.patch.object(msg_board, 'send_request_vote_response')
+
+    task.run()
+
+    msg_board.send_request_vote_response.assert_called_once_with(receiver='raft_node_2', ok=False)
+
+
+def test_request_rejected_with_stale_snapshot_term(mocker):
+    state = Raft(address='raft_node_1',
+                 role=Role.FOLLOWER,
+                 state_store={
+                     'current_term': 2,
+                     'snapshot': {
+                         'last_term': 2,
+                         'last_index': 2,
+                         'state': {}
+                     }
+                 },
+                 log=Log([]))
+
     msg_board = MessageBoard(raft_state=state)
 
     task = RequestVoteTask(
@@ -45,10 +81,10 @@ def test_request_rejected_with_stale_log_term(mocker):
 
 
 def test_request_rejected_with_stale_log_index(mocker):
-    state = RaftState(address='raft_node_1',
-                      role=Role.FOLLOWER,
-                      state_store={'current_term': 2},
-                      log=[LogEntry(term=2, index=3, body=None, uid=None)])
+    state = Raft(address='raft_node_1',
+                 role=Role.FOLLOWER,
+                 state_store={'current_term': 2},
+                 log=Log([LogEntry(term=2, index=3, body=None, uid=None)]))
 
     msg_board = MessageBoard(raft_state=state)
 
@@ -66,8 +102,37 @@ def test_request_rejected_with_stale_log_index(mocker):
     msg_board.send_request_vote_response.assert_called_once_with(receiver='raft_node_2', ok=False)
 
 
+def test_request_rejected_with_stale_snapshot_index(mocker):
+    state = Raft(address='raft_node_1',
+                 role=Role.FOLLOWER,
+                 state_store={
+                     'current_term': 2,
+                     'snapshot': {
+                         'last_term': 2,
+                         'last_index': 2,
+                         'state': {}
+                     }
+                 },
+                 log=Log([]))
+
+    msg_board = MessageBoard(raft_state=state)
+
+    task = RequestVoteTask(
+        state=state,
+        msg_board=msg_board,
+        executor=None,
+        msg={'sender': 'raft_node_2', 'senders_term': 3, 'senders_last_log_entry': {'term': 2, 'index': 1}}
+    )
+
+    mocker.patch.object(msg_board, 'send_request_vote_response')
+
+    task.run()
+
+    msg_board.send_request_vote_response.assert_called_once_with(receiver='raft_node_2', ok=False)
+
+
 def test_leader_becomes_follower_when_term_stale(mocker):
-    state = RaftState(address='raft_node_1', role=Role.LEADER, state_store={'current_term': 5})
+    state = Raft(address='raft_node_1', role=Role.LEADER, state_store={'current_term': 5}, log=Log([]))
     msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 
@@ -97,7 +162,7 @@ def test_leader_becomes_follower_when_term_stale(mocker):
 
 
 def test_follower(mocker):
-    state = RaftState(address='raft_node_1', role=Role.FOLLOWER, state_store={'current_term': 5})
+    state = Raft(address='raft_node_1', role=Role.FOLLOWER, state_store={'current_term': 5}, log=Log([]))
     msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
 

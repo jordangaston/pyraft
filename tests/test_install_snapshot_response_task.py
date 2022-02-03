@@ -1,11 +1,16 @@
 from ds_from_scratch.raft.message_board import MessageBoard
-from ds_from_scratch.raft.state import RaftState
-from ds_from_scratch.raft.task import InstallSnapshotResponseTask, ReplicateEntriesTask
-from ds_from_scratch.raft.util import Role, Executor
+from ds_from_scratch.raft.model.log import Log
+from ds_from_scratch.raft.model.raft import Raft, Role
+from ds_from_scratch.raft.task.install_snapshot_response import InstallSnapshotResponseTask
+from ds_from_scratch.raft.task.replicate_entries import ReplicateEntriesTask
+from ds_from_scratch.raft.executor import Executor
 
 
 def test_does_nothing_unless_leader(mocker):
-    state = RaftState(address='state_node_1', role=Role.FOLLOWER, state_store={'current_term': 5})
+    state = Raft(address='state_node_1',
+                 role=Role.FOLLOWER,
+                 state_store={'current_term': 5},
+                 log=Log([]))
 
     msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
@@ -23,7 +28,10 @@ def test_does_nothing_unless_leader(mocker):
 
 
 def test_becomes_follower_when_term_stale(mocker):
-    state = RaftState(address='state_node_1', role=Role.LEADER, state_store={'current_term': 5})
+    state = Raft(address='state_node_1',
+                 role=Role.LEADER,
+                 state_store={'current_term': 5},
+                 log=Log([]))
 
     msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)
@@ -52,7 +60,10 @@ def test_becomes_follower_when_term_stale(mocker):
 
 
 def test_ack_snapshot_chunk(mocker):
-    state = RaftState(address='raft_node_1', role=Role.LEADER, state_store={'current_term': 5})
+    state = Raft(address='raft_node_1',
+                 role=Role.LEADER,
+                 state_store={'current_term': 5},
+                 log=Log([]))
 
     msg_board = MessageBoard(raft_state=state)
     executor = Executor(executor=None)

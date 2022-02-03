@@ -1,6 +1,7 @@
-from ds_from_scratch.raft.util import Role, RingBufferRandom
-from ds_from_scratch.raft.log import PickleDbLog
-from ds_from_scratch.raft.store import PickleDbStateStore
+from ds_from_scratch.sim.testing import RingBufferRandom
+from ds_from_scratch.raft.model.raft import Role
+from ds_from_scratch.raft.store.pickledb import PickleDbLogStore
+from ds_from_scratch.raft.store.pickledb import PickleDbStateStore
 from tests.simulation_assertions import assert_simulation_state
 import pickledb
 
@@ -12,7 +13,7 @@ def test_state_is_persistent_when_node_bounced(simulation_builder, tmp_path):
                                       role=Role.FOLLOWER,
                                       prng=RingBufferRandom([10]),
                                       state_store=PickleDbStateStore(db),
-                                      log=PickleDbLog(db))
+                                      log_store=PickleDbLogStore(db))
 
     simulation_builder.with_raft_node(hostname='raft_node_2', role=Role.FOLLOWER, prng=RingBufferRandom([15]))
     simulation_builder.with_raft_node(hostname='raft_node_3', role=Role.FOLLOWER, prng=RingBufferRandom([20]))

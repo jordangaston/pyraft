@@ -1,4 +1,4 @@
-from ds_from_scratch.raft.util import Role
+from ds_from_scratch.raft.model.raft import Role
 
 
 def assert_simulation_state(simulation, expectations=None, leader=None, current_term=None):

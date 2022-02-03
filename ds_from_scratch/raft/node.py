@@ -1,8 +1,13 @@
-from ds_from_scratch.raft.task import *
+from ds_from_scratch.raft.task.accept_command import AcceptCommandTask
+from ds_from_scratch.raft.task.append_entries import AppendEntriesTask
+from ds_from_scratch.raft.task.append_entries_response import AppendEntriesResponseTask
+from ds_from_scratch.raft.task.request_vote import RequestVoteTask
+from ds_from_scratch.raft.task.request_vote_response import RequestVoteResponseTask
+from ds_from_scratch.raft.task.start_server import StartServerTask
 from ds_from_scratch.raft.util import Logger
 
 
-class Raft:
+class RaftNode:
     """
     A Raft node implemented using Actor pattern
     """

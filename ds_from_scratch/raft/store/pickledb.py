@@ -1,7 +1,8 @@
-import json
+from typing import MutableMapping
+from ds_from_scratch.raft.model.log import LogEntry
 
 
-class PickleDbLog:
+class PickleDbLogStore:
 
     def __init__(self, db):
         self.db = db
@@ -63,10 +64,16 @@ class PickleDbLog:
             self[i] = self[i + 1]
             self.db.dpop('log', str(i + 1))
             self.len -= 1
-            
+
         self.db.dump()
 
         return popped
+
+    def clear(self):
+        self.db.drem('log')
+        self.len = 0
+        self.db.dcreate('log')
+        self.db.dump()
 
     def copy(self):
         values = []
@@ -130,59 +137,34 @@ class PickleDbLog:
             return entry
 
 
-class LogEntry:
+class PickleDbStateStore(MutableMapping):
 
-    def __init__(self, body=None, term=None, index=None, uid=None):
-        self.uid = uid
-        self.index = index
-        self.term = term
-        self.body = body
+    def __init__(self, db):
+        self.db = db
+        self.__init_store()
 
-    def get_uid(self):
-        return self.uid
+    def _keytransform(self, key):
+        return key
 
-    def get_index(self):
-        return self.index
+    def __iter__(self):
+        raise NotImplementedError
 
-    def get_term(self):
-        return self.term
+    def __len__(self):
+        raise NotImplementedError
 
-    def get_body(self):
-        return self.body
+    def __delitem__(self, key):
+        raise NotImplementedError
 
+    def __setitem__(self, key, value):
 
-class SnapshotBuilder:
+        self.db.dadd('state', (key, value))
+        self.db.dump()
 
-    def __init__(self, state_store):
-        self.state_store = state_store
+    def __getitem__(self, key):
+        if self.db.dexists('state', key):
+            return self.db.dget('state', key)
+        raise KeyError('key does not exist')
 
-    def append_chunk(self, data, offset, last_index, last_term):
-        if self.is_snapshot_stale(last_term=last_term, last_index=last_index):
-            self.state_store['incoming_snapshot_term'] = last_term
-            self.state_store['incoming_snapshot_index'] = last_index
-            self.state_store['incoming_snapshot_offset']
-
-        if offset <= self.state_store.get('incoming_snapshot_offset', -1):
-            return
-
-        snapshot_byte_string = self.state_store.get('incoming_snapshot', "")
-        snapshot_byte_string += data.decode("utf-8")
-        self.state_store['incoming_snapshot'] = snapshot_byte_string
-        self.state_store['incoming_snapshot_offset'] = offset
-
-    def build(self):
-        snapshot = json.loads(self.state_store['incoming_snapshot'])
-        self.state_store["incoming_snapshot"] = ""
-        self.state_store["incoming_snapshot_offset"] = -1
-        return snapshot
-
-    def is_snapshot_stale(self, last_term, last_index):
-        curr_term = self.state_store.get('incoming_snapshot_term', 0)
-        curr_index = self.state_store.get('incoming_snapshot_index', 0)
-
-        if last_term > curr_term:
-            return True
-        elif last_term == curr_term:
-            return last_index > curr_index
-        else:
-            return False
+    def __init_store(self):
+        if not self.db.exists('state'):
+            self.db.dcreate('state')

@@ -1,11 +1,15 @@
-from ds_from_scratch.raft.task import ReplicateEntriesTask
-from ds_from_scratch.raft.state import RaftState
-from ds_from_scratch.raft.util import Role
+from ds_from_scratch.raft.model.log import Log
+from ds_from_scratch.raft.model.raft import Raft, Role
 from ds_from_scratch.raft.message_board import MessageBoard
+from ds_from_scratch.raft.task.replicate_entries import ReplicateEntriesTask
 
 
 def test_send_heartbeat_when_peer_up_to_date(mocker):
-    state = RaftState(address='raft_node_1', role=Role.LEADER, state_store={'current_term': 5})
+    state = Raft(address='raft_node_1',
+                 role=Role.LEADER,
+                 state_store={'current_term': 5},
+                 log=Log([]))
+
     msg_board = MessageBoard(raft_state=state)
 
     task = ReplicateEntriesTask(
@@ -35,7 +39,10 @@ def test_send_heartbeat_when_peer_up_to_date(mocker):
 
 
 def test_send_entries(mocker):
-    state = RaftState(address='raft_node_1', role=Role.LEADER, state_store={'current_term': 5})
+    state = Raft(address='raft_node_1',
+                 role=Role.LEADER, state_store={'current_term': 5},
+                 log=Log([]))
+
     msg_board = MessageBoard(raft_state=state)
 
     task = ReplicateEntriesTask(
@@ -71,7 +78,11 @@ def test_send_entries(mocker):
 
 
 def test_install_snapshot(mocker):
-    state = RaftState(address='raft_node_1', role=Role.LEADER, state_store={'current_term': 5})
+    state = Raft(address='raft_node_1',
+                 role=Role.LEADER,
+                 state_store={'current_term': 5},
+                 log=Log([]))
+
     msg_board = MessageBoard(raft_state=state)
 
     task = ReplicateEntriesTask(

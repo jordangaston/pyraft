@@ -1,5 +1,5 @@
-from ds_from_scratch.raft.util import RingBufferRandom
-from ds_from_scratch.raft.server import Role
+from ds_from_scratch.raft.model.raft import Role
+from ds_from_scratch.sim.testing import RingBufferRandom
 from tests.simulation_assertions import assert_simulation_state
 
 
@@ -18,6 +18,8 @@ def test_entry_is_commited_when_all_nodes_healthy(simulation_builder):
     )
 
     simulation.run(until=50)
+
+    snapshot = simulation.get_raft_state_snapshots()
 
     assert future.result() == 'cmd_1'
     assert_simulation_state(simulation, expectations={

@@ -1,38 +1,85 @@
-from ds_from_scratch.raft.util import Role
-from random import Random
 import math
+from enum import Enum
+from random import Random
+
+from ds_from_scratch.raft.model.election_timer import ElectionTimer
+from ds_from_scratch.raft.model.follower import Follower
+from ds_from_scratch.raft.model.snapshot import Snapshot
 
 
-class RaftState:
+class Role(Enum):
+    CANDIDATE = 0
+    LEADER = 1
+    FOLLOWER = 2
+
+
+class Raft:
     def __init__(self,
                  address,
                  role,
-                 log=[],
-                 state_store={},
+                 log,
+                 state_store=None,
+                 save_snapshot=lambda log: False,
+                 max_chunk_size=10,
                  heartbeat_interval=5,
                  election_timeout_range=(10, 20),
                  prng=Random()):
 
-        self.state_store = state_store
-        self.log = Log(log)
-        self.heartbeat_interval = heartbeat_interval
-        self.address = address
-        self.role = role
-        self.election_timer = ElectionTimer(election_timeout_range, prng)
-        self.votes = set()
-        self.followers = {}
-        self.default_next_index = None
-        self.last_applied_index = 0
-        self.subscriber = None
+        if state_store is None:
+            state_store = {}
 
-    def should_send_snapshot(self):
-        pass
+        self.address = address
+        self.election_timer = ElectionTimer(election_timeout_range, prng)
+        self.followers = {}
+        self.heartbeat_interval = heartbeat_interval
+        self.last_applied_index = 0
+        self.log = log
+        self.role = role
+        self.save_snapshot = save_snapshot
+        self.max_chunk_size = max_chunk_size
+        self.snapshot_transfer_offset = {}
+        self.snapshot = Snapshot(state_store)
+        self.state_store = state_store
+        self.subscriber = None
+        self.votes = set()
+
+    def get_snapshot(self):
+        return self.snapshot
+
+    def should_send_snapshot(self, peer):
+        if not self.snapshot.exists():
+            return False
+
+        follower = self.followers.get(peer, self.__create_follower())
+        return follower.behind_snapshot(self.snapshot)
 
     def ack_snapshot_chunk(self, peer):
-        pass
+        last_offset = self.snapshot_transfer_offset.get(peer, 0)
+        self.snapshot_transfer_offset[peer] += min(self.snapshot.get_chunk_size(last_offset, self.max_chunk_size),
+                                                   self.max_chunk_size)
+
+    def next_snapshot_chunk_offset(self, peer):
+        return self.snapshot_transfer_offset.setdefault(peer, 0)
+
+    def next_snapshot_chunk(self, peer):
+        next_offset = self.snapshot_transfer_offset.setdefault(peer, 0)
+        return self.snapshot.get_chunk(next_offset, self.max_chunk_size)
+
+    def last_snapshot_term(self):
+        return self.snapshot.last_term()
+
+    def last_snapshot_index(self):
+        return self.snapshot.last_index()
 
     def install_snapshot(self, snapshot):
-        pass
+        self.snapshot = snapshot
+
+        if self.snapshot.fresher_than(self.log):
+            self.log.clear()
+        else:
+            self.log.truncate_until(self.snapshot.last_index())
+
+        self.subscriber.set_state(self.snapshot.get_state())
 
     def subscribe(self, subscriber):
         self.subscriber = subscriber
@@ -50,34 +97,35 @@ class RaftState:
         return values
 
     def set_peers_last_repl_index(self, peer, index):
-        follower = self.followers.get(peer, Follower())
+        follower = self.followers.setdefault(peer, self.__create_follower())
         follower.set_last_index(index)
-        self.followers[peer] = follower
 
     def peers_last_repl_index(self, peer):
-        follower = self.followers.get(peer, Follower())
-        self.followers[peer] = follower
+        follower = self.followers.setdefault(peer, self.__create_follower())
         return follower.last_index()
 
     def set_peers_next_index(self, peer, index):
-        assert self.get_role() == Role.LEADER
-        follower = self.followers.get(peer, Follower())
+        follower = self.followers.setdefault(peer, self.__create_follower())
         follower.set_next_index(index)
-        self.followers[peer] = follower
 
     def peers_next_index(self, peer):
-        follower = self.followers.get(peer, Follower())
-        self.followers[peer] = follower
+        follower = self.followers.setdefault(peer, self.__create_follower())
         return follower.next_index()
 
     def next_index(self):
         return self.log.next_index()
 
     def last_term(self):
-        return self.log.last_term()
+        last_term = self.log.last_term()
+        if last_term == 0:
+            last_term = self.snapshot.last_term()
+        return last_term
 
     def last_index(self):
-        return self.log.last_index()
+        last_index = self.log.last_index()
+        if last_index == 0:
+            last_index = self.snapshot.last_index()
+        return last_index
 
     def slice_entries(self, index):
         return self.log.slice_entries(index)
@@ -89,7 +137,12 @@ class RaftState:
         return self.log.all_entries()
 
     def append_entries(self, *entries):
-        return self.log.append_entries(*entries)
+        last_index = self.log.append_entries(*entries)
+
+        if self.save_snapshot(self.log):
+            self.snapshot.create(self.log, self.subscriber.get_state())
+            self.log.truncate_committed()
+        return last_index
 
     def commit_entries(self, next_commit_index):
 
@@ -101,7 +154,7 @@ class RaftState:
 
         return results
 
-    def get_snapshot(self):
+    def get_report(self):
         return {
             'role': self.role,
             'current_term': self.get_current_term(),
@@ -169,7 +222,6 @@ class RaftState:
             assert self.role == Role.CANDIDATE
 
         self.__clear_candidate_state()
-        self.default_next_index = self.log.next_index()
         self.role = Role.LEADER
 
     def get_heartbeat_interval(self):
@@ -197,7 +249,6 @@ class RaftState:
 
     def __clear_leader_state(self):
         self.followers.clear()
-        self.default_next_index = None
 
     def __set_current_term(self, term):
         self.state_store['current_term'] = term
@@ -208,139 +259,5 @@ class RaftState:
     def __set_voted(self, has_voted):
         self.state_store['voted'] = has_voted
 
-
-class Snapshot:
-    @classmethod
-    def create(cls, log, state):
-        pass
-
-
-class ElectionTimer:
-    def __init__(self, timeout_range, prng):
-        self.timeout_range = timeout_range
-        self.prng = prng
-
-    def next_timeout(self):
-        return self.prng.randint(self.timeout_range[0], self.timeout_range[1])
-
-
-class Follower:
-    def __init__(self):
-        self.next = 0
-        self.last = 0
-
-    def behind_snapshot(self, snapshot):
-        pass
-
-    def set_last_index(self, index):
-        if self.last >= index:
-            return  # last_index is monotonically increasing
-
-        self.last = index
-
-    def set_next_index(self, index):
-        self.next = index
-
-    def next_index(self):
-        return self.next
-
-    def last_index(self):
-        return self.last
-
-
-class Log:
-
-    def __init__(self, log_store):
-        self.log_store = log_store
-        self.commit_index = 0
-
-    def append_entries(self, *entries):
-        for entry in entries:
-            if self.__index_in_log(entry.get_index()):
-                self.log_store[self.__pos_of_index(entry.get_index())] = entry
-            else:
-                self.log_store.append(entry)
-
-        last_entry = entries[len(entries) - 1]
-        return last_entry.get_index()
-
-    def commit_entries(self, next_commit_index):
-        if not self.__index_in_log(next_commit_index):
-            return []
-
-        committed = []
-
-        commit_start = self.__pos_of_index(self.commit_index) if self.__index_in_log(self.commit_index) else 0
-        commit_end = self.__pos_of_index(next_commit_index) + 1
-
-        for entry in self.log_store[commit_start:commit_end]:
-            self.commit_index = entry.get_index()
-            committed.append(entry)
-
-        return committed
-
-    def last_commit_index(self):
-        return self.commit_index
-
-    def get_entry(self, index):
-        if self.__index_in_log(index):
-            return self.log_store[self.__pos_of_index(index)]
-        return None
-
-    def store(self):
-        return self.log_store
-
-    def all_entries(self):
-        return self.log_store.copy()
-
-    def slice_entries(self, index):
-        if not self.__index_in_log(index):
-            return []
-
-        return self.log_store[self.__pos_of_index(index):]
-
-    def next_index(self):
-        return self.__last_log_index() + 1
-
-    def last_term(self):
-        if self.last_entry() is None:
-            return 0
-        return self.last_entry().get_term()
-
-    def last_index(self):
-        if self.last_entry() is None:
-            return 0
-        return self.last_entry().get_index()
-
-    def last_entry(self):
-        num_entries = len(self.log_store)
-        if num_entries == 0:
-            return None
-        return self.log_store[num_entries - 1]
-
-    def __index_in_log(self, index):
-        pos = self.__pos_of_index(index)
-        return pos is not None
-
-    def __pos_of_index(self, index):
-        first = self.__first_log_index()
-        last = self.__last_log_index()
-
-        if first == 0 or last == 0:
-            return None
-
-        if index < first or index > last:
-            return None
-
-        return 0 + (index - first)
-
-    def __last_log_index(self):
-        entry = self.last_entry()
-        if entry is None:
-            return 0
-        return entry.get_index()
-
-    def __first_log_index(self):
-        if len(self.log_store) == 0:
-            return 0
-        return self.log_store[0].get_index()
+    def __create_follower(self):
+        return Follower(self.next_index())

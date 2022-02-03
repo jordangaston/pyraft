@@ -32,6 +32,42 @@ class PickleDbLog:
     def __len__(self):
         return self.len
 
+    def pop(self, index=None):
+        if index is None:
+            index = self.len - 1
+
+        if self.len == 0:
+            raise IndexError('pop from empty list')
+
+        if index >= self.len or index < 0:
+            raise IndexError('pop index out of range')
+
+        if self.len == 1:
+            popped = self[0]
+            self.db.dpop('log', str(0))
+            self.len -= 1
+            self.db.dump()
+            return popped
+
+        if index == self.len - 1:
+            popped = self[self.len - 1]
+            self.db.dpop('log', str(self.len - 1))
+            self.len -= 1
+            self.db.dump()
+            return popped
+
+        popped = self[index]
+
+        length = self.len - 1
+        for i in range(index, length):
+            self[i] = self[i + 1]
+            self.db.dpop('log', str(i + 1))
+            self.len -= 1
+            
+        self.db.dump()
+
+        return popped
+
     def copy(self):
         values = []
         for value in self.db.dgetall('log').values():

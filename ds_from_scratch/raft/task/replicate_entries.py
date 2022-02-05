@@ -31,6 +31,7 @@ class ReplicateEntriesTask:
             return
 
         for peer in self.msg_board.get_peers():
+
             if peer == self.state.get_address():
                 continue
 

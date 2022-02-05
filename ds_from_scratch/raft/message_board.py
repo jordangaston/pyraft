@@ -14,6 +14,10 @@ class MessageBoard:
 
     def install_snapshot(self, peer):
         is_last_chunk, chunk = self.raft_state.next_snapshot_chunk(peer)
+
+        # if len(chunk) == 0:
+        #     return
+
         snapshot = {
             'data': chunk,
             'offset': self.raft_state.next_snapshot_chunk_offset(peer),
@@ -23,8 +27,11 @@ class MessageBoard:
         }
         self.__send('install_snapshot', peer, params=snapshot)
 
-    def send_install_snapshot_response(self, receiver, ok):
-        self.__send('install_snapshot_response', receiver, params={'ok': ok})
+    def send_install_snapshot_response(self, receiver, ok, params=None):
+        if params is None:
+            params = {}
+
+        self.__send('install_snapshot_response', receiver, params={'ok': ok, **params})
 
     def send_request_vote_response(self, receiver, ok):
         self.__send('request_vote_response', receiver, params={'ok': ok})
@@ -78,12 +85,13 @@ class MessageBoard:
     def __previous_term_index(self, next_index):
         previous_entry = self.raft_state.get_entry(next_index - 1)
 
-        term = 0
-        index = 0
-
         if previous_entry:
             term = previous_entry.get_term()
             index = previous_entry.get_index()
+        else:
+            snapshot = self.raft_state.get_snapshot()
+            term = snapshot.last_term()
+            index = snapshot.last_index()
 
         return term, index
 

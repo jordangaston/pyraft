@@ -1,5 +1,6 @@
 from ds_from_scratch.raft.model.log import Log
 from ds_from_scratch.raft.model.raft import Raft, Role
+from ds_from_scratch.raft.model.snapshot import SnapshotBuilder
 from ds_from_scratch.raft.node import RaftNode
 from ds_from_scratch.raft.executor import Executor
 from ds_from_scratch.raft.message_board import MessageBoard
@@ -94,7 +95,7 @@ class SimulationBuilder:
                        hostname,
                        role,
                        current_term=0,
-                       max_chunk_size=10,
+                       max_chunk_size=50,
                        save_snapshot=lambda x: False,
                        prng=Random(),
                        state_store=None,
@@ -125,7 +126,8 @@ class SimulationBuilder:
 
         raft = RaftNode(executor=executor,
                         state=state,
-                        msg_board=MessageBoard(raft_state=state))
+                        msg_board=MessageBoard(raft_state=state),
+                        snapshot_builder=SnapshotBuilder(state_store))
 
         self.node_by_address[hostname] = raft
 

@@ -96,10 +96,16 @@ class SnapshotBuilder:
         if offset <= self.state_store.get('incoming_snapshot_offset', -1):
             return
 
+        if len(data) == 0:
+            return
+
         snapshot_byte_string = self.state_store.get('incoming_snapshot', "")
         snapshot_byte_string += data.decode("utf-8")
         self.state_store['incoming_snapshot'] = snapshot_byte_string
         self.state_store['incoming_snapshot_offset'] = offset
+
+    def pending(self):
+        return self.state_store.get('incoming_snapshot_offset', -1) != -1
 
     def build(self):
         snapshot = json.loads(self.state_store['incoming_snapshot'])

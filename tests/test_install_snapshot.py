@@ -37,16 +37,16 @@ def test_initial_leader_election(simulation_builder):
 
     simulation.run(until=40)
 
-    # simulation.execute_cmd(
-    #     'raft_node_1',
-    #     'cmd_uid_3',
-    #     'cmd_3'
-    # )
-    #
-    # simulation.run(until=60)
-    #
-    # simulation.connect_raft_nodes('raft_node_2')
-    #
-    # simulation.run(until=80)
-    #
+    simulation.execute_cmd(
+        'raft_node_1',
+        'cmd_uid_3',
+        'cmd_3'
+    )
+
+    simulation.run(until=60)
+
+    simulation.connect_raft_nodes('raft_node_2')
+
+    simulation.run(until=120)
+
     assert False

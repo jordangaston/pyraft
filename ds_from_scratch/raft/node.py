@@ -1,6 +1,8 @@
 from ds_from_scratch.raft.task.accept_command import AcceptCommandTask
 from ds_from_scratch.raft.task.append_entries import AppendEntriesTask
 from ds_from_scratch.raft.task.append_entries_response import AppendEntriesResponseTask
+from ds_from_scratch.raft.task.install_snapshot import InstallSnapshotTask
+from ds_from_scratch.raft.task.install_snapshot_response import InstallSnapshotResponseTask
 from ds_from_scratch.raft.task.request_vote import RequestVoteTask
 from ds_from_scratch.raft.task.request_vote_response import RequestVoteResponseTask
 from ds_from_scratch.raft.task.start_server import StartServerTask
@@ -9,13 +11,14 @@ from ds_from_scratch.raft.util import Logger
 
 class RaftNode:
     """
-    A Raft node implemented using Actor pattern
+    A Raft node implemented using the Actor pattern
     """
 
-    def __init__(self, state, executor, msg_board):
+    def __init__(self, state, executor, msg_board, snapshot_builder):
         self.executor = executor
         self.state = state
         self.msg_board = msg_board
+        self.snapshot_builder = snapshot_builder
         self.logger = Logger(address=state.get_address())
 
         self.executor.submit(StartServerTask(
@@ -75,6 +78,17 @@ class RaftNode:
                 msg=msg.body
             ))
         elif operation == 'install_snapshot':
-            pass
+            self.executor.submit(InstallSnapshotTask(
+                state=self.state,
+                msg_board=self.msg_board,
+                executor=self.executor,
+                msg=msg.body,
+                snapshot_builder=self.snapshot_builder
+            ))
         elif operation == 'install_snapshot_response':
-            pass
+            self.executor.submit(InstallSnapshotResponseTask(
+                state=self.state,
+                msg_board=self.msg_board,
+                executor=self.executor,
+                msg=msg.body
+            ))

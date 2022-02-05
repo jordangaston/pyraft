@@ -15,7 +15,6 @@ class InstallSnapshotTask:
         self.logger = Logger(self.state.get_address())
 
     def run(self):
-
         if self.leaders_term_is_stale() or self.leaders_log_stale():
             self.reject_snapshot()
             return
@@ -29,8 +28,9 @@ class InstallSnapshotTask:
 
         if self.is_last_chunk():
             self.apply_snapshot()
-
-        self.finished_receiving_chunk()
+            self.finished_receiving_snapshot()
+        else:
+            self.finished_receiving_chunk()
 
     def leaders_log_stale(self):
         return self.msg['senders_term'] < self.state.get_current_term()
@@ -74,8 +74,14 @@ class InstallSnapshotTask:
     def finished_receiving_chunk(self):
         self.msg_board.send_install_snapshot_response(receiver=self.msg['sender'], ok=True)
 
+    def finished_receiving_snapshot(self):
+        self.msg_board.send_install_snapshot_response(receiver=self.msg['sender'],
+                                                      ok=True,
+                                                      params={'last_repl_index': self.msg['last_index']})
+
     def apply_snapshot(self):
-        self.state.install_snapshot(self.snapshot_builder.build())
+        if self.snapshot_builder.pending():
+            self.state.install_snapshot(self.snapshot_builder.build())
 
     def leaders_term(self):
         return self.msg['senders_term']

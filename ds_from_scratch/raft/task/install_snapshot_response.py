@@ -21,6 +21,10 @@ class InstallSnapshotResponseTask:
 
         self.ack_snapshot_chunk()
 
+        if self.transfer_finished():
+            self.state.set_peers_last_repl_index(self.msg['sender'], self.msg['last_repl_index'])
+            self.state.set_peers_next_index(self.msg['sender'], self.msg['last_repl_index'] + 1)
+
     def is_leader(self):
         return self.state.get_role() == Role.LEADER
 
@@ -40,3 +44,6 @@ class InstallSnapshotResponseTask:
 
     def peers_term(self):
         return self.msg['senders_term']
+
+    def transfer_finished(self):
+        return 'last_repl_index' in self.msg

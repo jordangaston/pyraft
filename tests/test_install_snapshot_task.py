@@ -190,6 +190,10 @@ def test_applies_snapshot_when_done(mocker):
     mocker.patch.object(msg_board, 'send_install_snapshot_response')
 
     mocker.patch.object(snapshot_builder, 'append_chunk')
+
+    mocker.patch.object(snapshot_builder, 'pending')
+    snapshot_builder.pending.return_value = True
+
     mocker.patch.object(snapshot_builder, 'build')
     snapshot_builder.build.return_value = 'snapshot'
 
@@ -199,4 +203,6 @@ def test_applies_snapshot_when_done(mocker):
 
     snapshot_builder.append_chunk.assert_called_once_with(data='data', offset=0, last_term=10, last_index=2)
     state.install_snapshot.assert_called_once_with('snapshot')
-    msg_board.send_install_snapshot_response.assert_called_once_with(receiver='state_node_2', ok=True)
+    msg_board.send_install_snapshot_response.assert_called_once_with(receiver='state_node_2',
+                                                                     ok=True,
+                                                                     params={'last_repl_index': 2})

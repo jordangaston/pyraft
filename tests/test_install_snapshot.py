@@ -2,7 +2,7 @@ from ds_from_scratch.raft.model.raft import Role
 from ds_from_scratch.sim.testing import RingBufferRandom
 
 
-def test_initial_leader_election(simulation_builder):
+def test_snapshot(simulation_builder):
     save_snapshot = lambda log: log.length() >= 2
 
     simulation_builder.with_raft_node(hostname='raft_node_1',
@@ -49,4 +49,11 @@ def test_initial_leader_election(simulation_builder):
 
     simulation.run(until=120)
 
-    assert False
+    raft_node_1 = simulation.get_raft_state('raft_node_1')
+    snapshot_1 = raft_node_1.get_snapshot()
+
+    raft_node_2 = simulation.get_raft_state('raft_node_2')
+    snapshot_2 = raft_node_2.get_snapshot()
+
+    assert snapshot_1.last_index() == snapshot_2.last_index()
+    assert snapshot_1.last_term() == snapshot_2.last_term()
